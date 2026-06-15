@@ -1,0 +1,5 @@
+^instructions$
+^instructions/.*
+^source-material$
+^source-material/.*
+^.*\.zip$
