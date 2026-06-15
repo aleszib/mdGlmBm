@@ -1,0 +1,34 @@
+Package: dynGLMbm
+Type: Package
+Title: Dynamic GLM-Based Blockmodeling
+Version: 0.1.0.9000
+Authors@R: c(
+    person("Damjan", "BM", role = c("aut", "cph")),
+    person("OpenAI", "Codex", role = "cre", email = "noreply@example.com")
+  )
+Author: Damjan BM [aut, cph], OpenAI Codex [cre]
+Maintainer: OpenAI Codex <noreply@example.com>
+Description: Foundation package for dynamic GLM-based blockmodeling. The
+    current release preserves the legacy mdsbm dynamic optimizer interface and
+    includes cleaned static GLM blockmodeling helpers from imported source
+    material. The dynamic GLM-Markov optimizer is not yet implemented.
+License: file LICENSE
+Encoding: UTF-8
+Imports:
+    codetools,
+    Rcpp,
+    stats,
+    utils
+LinkingTo:
+    Rcpp
+Suggests:
+    blockmodeling,
+    doParallel,
+    doRNG,
+    foreach,
+    roxygen2,
+    rcmdcheck,
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+Roxygen: list(markdown = TRUE)
+Config/roxygen2/version: 8.0.0
