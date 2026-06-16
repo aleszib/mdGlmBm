@@ -14,7 +14,13 @@ test_that("package loads and exported functions exist", {
     "glm_blockmodel_family",
     "as_dynamic_network",
     "print.dynamic_network",
-    "summary.dynamic_network"
+    "summary.dynamic_network",
+    "fit_time_glm_blockmodel",
+    "fit_time_glm_blockmodels",
+    "print.time_glm_blockmodel",
+    "summary.time_glm_blockmodel",
+    "print.time_glm_blockmodels",
+    "summary.time_glm_blockmodels"
   )
 
   for (fn in exports) {
