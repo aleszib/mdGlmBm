@@ -20,6 +20,7 @@ test_that("package loads and exported functions exist", {
     "estimate_markov_transitions",
     "estimate_membership_prior",
     "score_actor_time_candidates",
+    "fit_dynamic_glm_blockmodel",
     "print.time_glm_blockmodel",
     "summary.time_glm_blockmodel",
     "print.time_glm_blockmodels",
@@ -27,7 +28,9 @@ test_that("package loads and exported functions exist", {
     "print.markov_transitions",
     "summary.markov_transitions",
     "print.membership_prior",
-    "summary.membership_prior"
+    "summary.membership_prior",
+    "print.dynamic_glm_blockmodel",
+    "summary.dynamic_glm_blockmodel"
   )
 
   for (fn in exports) {
