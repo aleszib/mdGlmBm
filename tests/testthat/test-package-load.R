@@ -10,7 +10,10 @@ test_that("package loads and exported functions exist", {
     "optRandomParGlm",
     "optRandomParRangeGlm",
     "upAndDownSearch",
-    "balassaNorm"
+    "balassaNorm",
+    "as_dynamic_network",
+    "print.dynamic_network",
+    "summary.dynamic_network"
   )
 
   for (fn in exports) {
