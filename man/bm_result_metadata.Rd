@@ -8,8 +8,10 @@ bm_result_metadata(
   fit = NULL,
   clu = NULL,
   ICL = NULL,
-  pseudo = FALSE,
-  objective = NULL
+  pseudo = NULL,
+  objective = NULL,
+  family = NULL,
+  criterion_note = NULL
 )
 }
 \arguments{
