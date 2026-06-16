@@ -21,7 +21,13 @@ dimnames(M) <- list(c("a", "b"), c("a", "b"))
 res <- optParGlm(M, clu = c(1L, 1L), maxIter = 0, glmFamily = binomial)
 res$ICL
 res$pseudo
+res$criterion_note
 ```
+
+`binomial` is the true-likelihood mode.
+
+PPML uses the same result field names, but sets `pseudo = TRUE` and reports a
+note that the likelihood-style criteria are pseudo-likelihood-based.
 
 PPML is available through the `ppml()` family:
 
@@ -34,6 +40,7 @@ res_ppml <- optParGlm(
   glmFamily = ppml()
 )
 res_ppml$pseudo
+res_ppml$criterion_note
 ```
 
 ## Legacy dynamic example

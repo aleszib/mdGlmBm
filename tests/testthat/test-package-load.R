@@ -11,6 +11,7 @@ test_that("package loads and exported functions exist", {
     "optRandomParRangeGlm",
     "upAndDownSearch",
     "balassaNorm",
+    "glm_blockmodel_family",
     "as_dynamic_network",
     "print.dynamic_network",
     "summary.dynamic_network"

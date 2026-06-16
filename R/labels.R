@@ -31,6 +31,9 @@ bm_one_index <- function(x) {
 #' @return A single family name string when available.
 #' @keywords internal
 bm_family_name <- function(family) {
+  if (inherits(family, "glm_blockmodel_family")) {
+    return(family$name)
+  }
   if (inherits(family, "family") && !is.null(family$family)) {
     return(family$family)
   }
@@ -67,21 +70,16 @@ bm_is_ppml_family <- function(family) {
 #' @return A list of common result fields.
 #' @keywords internal
 bm_result_metadata <- function(fit = NULL, clu = NULL, ICL = NULL,
-                               pseudo = FALSE, objective = NULL) {
-  logLik_value <- if (!is.null(fit)) as.numeric(stats::logLik(fit)) else NA_real_
-  deviance_value <- if (!is.null(fit)) fit$deviance else NA_real_
-  BIC_value <- if (!is.null(fit)) as.numeric(stats::BIC(fit)) else NA_real_
-  if (is.null(objective)) {
-    objective <- if (!is.null(ICL)) ICL else logLik_value
-  }
-  list(
-    membership = clu,
-    logLik = logLik_value,
-    BIC = BIC_value,
+                               pseudo = NULL, objective = NULL,
+                               family = NULL, criterion_note = NULL) {
+  normalize_glm_blockmodel_result(
+    list(membership = clu),
+    fit = fit,
+    family = family,
     ICL = ICL,
-    deviance = deviance_value,
     objective = objective,
-    pseudo = isTRUE(pseudo)
+    pseudo = pseudo,
+    criterion_note = criterion_note
   )
 }
 

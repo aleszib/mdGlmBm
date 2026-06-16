@@ -184,6 +184,9 @@ optParGlm<-function(M, clu, formula=as.formula(Freq ~ block), twoStep=FALSE, var
   if(senderReceiver && (inDeg || outDeg)) {
     stop("senderReceiver=TRUE cannot be used together with inDeg=TRUE or outDeg=TRUE.")
   }
+
+  family_info <- glm_blockmodel_family(glmFamily)
+  glmFamily <- family_info$family
   
   formula <- update(formula, .~.+block)
   formula <- update(formula, Freq~.)
@@ -446,15 +449,17 @@ optParGlm<-function(M, clu, formula=as.formula(Freq ~ block), twoStep=FALSE, var
     fit = fit,
     clu = bestClu,
     ICL = ICL,
-    pseudo = bm_is_ppml_family(glmFamily),
-    objective = ICL
+    pseudo = family_info$pseudo,
+    objective = ICL,
+    family = family_info
   )
   out$membership <- meta$membership
   out$BIC <- meta$BIC
   out$deviance <- meta$deviance
   out$objective <- meta$objective
   out$pseudo <- meta$pseudo
-  out$family <- bm_family_name(glmFamily)
+  out$family <- meta$family
+  out$criterion_note <- meta$criterion_note
   out
 }
 
@@ -477,6 +482,9 @@ glmFit<-function(M, clu, formula=as.formula(Freq ~ block), vars=NULL, inDeg=FALS
   if(senderReceiver && (inDeg || outDeg)) {
     stop("senderReceiver=TRUE cannot be used together with inDeg=TRUE or outDeg=TRUE.")
   }
+
+  family_info <- glm_blockmodel_family(glmFamily)
+  glmFamily <- family_info$family
   
   k<-length(unique(clu))
   M<-.normalizeOneModeNames(M)
@@ -536,15 +544,17 @@ glmFit<-function(M, clu, formula=as.formula(Freq ~ block), vars=NULL, inDeg=FALS
     fit = fit,
     clu = clu,
     ICL = ICL,
-    pseudo = bm_is_ppml_family(glmFamily),
-    objective = ICL
+    pseudo = family_info$pseudo,
+    objective = ICL,
+    family = family_info
   )
   out$membership <- meta$membership
   out$BIC <- meta$BIC
   out$deviance <- meta$deviance
   out$objective <- meta$objective
   out$pseudo <- meta$pseudo
-  out$family <- bm_family_name(glmFamily)
+  out$family <- meta$family
+  out$criterion_note <- meta$criterion_note
   out
 }
 
