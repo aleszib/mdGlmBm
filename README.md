@@ -7,6 +7,7 @@ Current status:
 - the legacy `mdsbm` dynamic optimizer interface is preserved;
 - cleaned static GLM blockmodeling helpers are imported and documented;
 - a first dynamic data-layer constructor is available for time-indexed network input;
+- time-specific GLM observation-model fitting is available for fixed memberships;
 - the dynamic GLM-Markov optimizer is not implemented yet.
 
 ## Static GLM example
@@ -41,6 +42,28 @@ res_ppml <- optParGlm(
 )
 res_ppml$pseudo
 res_ppml$criterion_note
+```
+
+## Time-specific GLM example
+
+```r
+Y <- list(
+  t1 = matrix(c(0, 1, 0, 0), nrow = 2, byrow = TRUE),
+  t2 = matrix(c(0, 1, 1, 0, 0, 1, 1, 0, 0), nrow = 3, byrow = TRUE)
+)
+dimnames(Y$t1) <- list(c("A", "B"), c("A", "B"))
+dimnames(Y$t2) <- list(c("A", "B", "C"), c("A", "B", "C"))
+
+dn <- as_dynamic_network(Y)
+
+membership <- data.frame(
+  unit_id = dn$actor_time$unit_id,
+  membership = c(1L, 1L, 1L, 1L, 2L)
+)
+
+fit_time_glm_blockmodels(dn, membership = membership, family = "binomial")
+
+fit_time_glm_blockmodels(dn, membership = membership, family = "ppml")
 ```
 
 ## Legacy dynamic example
@@ -80,4 +103,6 @@ dn$lineage
 - Static GLM helpers are available for binomial and PPML-style use.
 - `as_dynamic_network()` is the first internal/public data representation step
   for actor-time and lineage handling.
+- `fit_time_glm_blockmodel()` and `fit_time_glm_blockmodels()` fit independent
+  observation models at fixed memberships.
 - The dynamic GLM-Markov optimizer is still pending and will be implemented in a later task.
