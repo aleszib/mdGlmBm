@@ -66,6 +66,26 @@ fit_time_glm_blockmodels(dn, membership = membership, family = "binomial")
 fit_time_glm_blockmodels(dn, membership = membership, family = "ppml")
 ```
 
+## Reference scoring layer
+
+```r
+transitions <- estimate_markov_transitions(dn, membership = membership)
+prior <- estimate_membership_prior(membership$membership, prior = "empirical")
+
+score_actor_time_candidates(
+  dn,
+  fit_time_glm_blockmodels(dn, membership = membership, family = "binomial"),
+  membership = membership,
+  row_index = 1L,
+  transition = transitions,
+  prior = prior
+)
+```
+
+`score_actor_time_candidates()` reports deviance-scale local scores for
+candidate memberships. The dynamic GLM-Markov optimizer is still not
+implemented, so this is a reference scoring layer only.
+
 ## Legacy dynamic example
 
 ```r
@@ -105,4 +125,6 @@ dn$lineage
   for actor-time and lineage handling.
 - `fit_time_glm_blockmodel()` and `fit_time_glm_blockmodels()` fit independent
   observation models at fixed memberships.
+- `estimate_markov_transitions()`, `estimate_membership_prior()`, and
+  `score_actor_time_candidates()` provide the reference dynamic scoring layer.
 - The dynamic GLM-Markov optimizer is still pending and will be implemented in a later task.
