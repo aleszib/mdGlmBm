@@ -1,0 +1,9 @@
+^AGENTS\.md$
+^instructions$
+^instructions/.*
+^sources$
+^sources/.*
+^\.github$
+^\.github/.*
+^.*\.zip$
+^.*:Zone.Identifier$
