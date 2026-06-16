@@ -17,10 +17,17 @@ test_that("package loads and exported functions exist", {
     "summary.dynamic_network",
     "fit_time_glm_blockmodel",
     "fit_time_glm_blockmodels",
+    "estimate_markov_transitions",
+    "estimate_membership_prior",
+    "score_actor_time_candidates",
     "print.time_glm_blockmodel",
     "summary.time_glm_blockmodel",
     "print.time_glm_blockmodels",
-    "summary.time_glm_blockmodels"
+    "summary.time_glm_blockmodels",
+    "print.markov_transitions",
+    "summary.markov_transitions",
+    "print.membership_prior",
+    "summary.membership_prior"
   )
 
   for (fn in exports) {
