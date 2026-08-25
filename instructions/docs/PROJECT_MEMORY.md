@@ -9,6 +9,8 @@ Create a professional-grade R package for dynamic GLM-based blockmodeling. The p
 
 The human lead wants speed, tests, professional package structure, and a long-term path toward an efficient dynamic GLM-Markov estimator.
 
+The stable project direction is Markov dynamic blockmodeling with GLM-based observation models. A simple R reference implementation is the immediate correctness target; later performance work must preserve its results and interpretation.
+
 ## Settled statistical decisions
 
 ### Dynamic structure
@@ -72,13 +74,17 @@ Split/merge of units over time is a long-term possibility, but not a first imple
 
 Use a list of time-specific networks with actor IDs in row/column names.
 
+Each element is square and actor sets may differ by time. User-facing cluster labels are one-based R labels.
+
 ### Internal data object
 
 Convert input to an internal dynamic object containing at least:
 
-- actor-time table;
-- dyad representation;
-- lineage table.
+- `actor_time`: actor ID, time, unit ID, and time-specific index;
+- `dyads`: dyadic observations or an efficient per-time equivalent;
+- `lineage`: predecessor/successor links between actor-time units.
+
+The internal class is `dynamic_network`. The giant `mdsbm`-style matrix is compatibility/internal representation only, not the primary public API.
 
 ### Main optimizer strategy
 
@@ -119,3 +125,5 @@ Implement a first working dynamic GLM-Markov optimizer using independent time-sp
 ### Milestone 6: C++ scoring backend
 
 Move local candidate scoring and membership updates to C++ after the R reference behavior is tested.
+
+Tests, reproducible CI, and a stable user-facing API are requirements throughout these milestones. Existing `mdsbm` behavior remains protected during consolidation.

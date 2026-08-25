@@ -11,6 +11,8 @@ For time points `t = 1, ..., T`:
 - `beta_t` are time-specific GLM coefficients;
 - `P` is the Markov transition matrix for latent block evolution.
 
+The first observation model is explicitly time-specific: `Y_t | Z_t, beta_t`. Each `beta_t` is fitted independently at time `t`; temporal dependence is in `Z_t`, not shared GLM coefficients.
+
 The first target objective is:
 
 ```text
@@ -43,6 +45,8 @@ Boundary cases:
 - exit: no successor term;
 - isolated actor-time unit: only GLM and prior terms;
 - future split/merge: dynamic terms become sums over all lineage predecessors/successors.
+
+Transition probabilities are smoothed before taking logs so numerical zeros do not create unintended infinite candidate penalties. An actor entering at `t` has no previous-transition penalty; an actor exiting after `t` has no next-transition penalty.
 
 ## Deviance and log-likelihood compatibility
 
@@ -81,3 +85,5 @@ Planned later:
 - No split/merge lineage estimation.
 - No arbitrary formula support in the first C++ scoring backend.
 - No CRAN/readiness claims.
+
+The later C++ scoring backend must reproduce the R reference scores and objective components on fixed deterministic inputs.

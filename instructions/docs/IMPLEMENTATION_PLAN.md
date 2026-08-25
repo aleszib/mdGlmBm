@@ -27,6 +27,24 @@ After the R backend is correct, move these parts to C++/Rcpp:
 
 Keep GLM coefficient fitting in R initially.
 
+## Phased implementation
+
+1. **Package foundation:** establish the R package structure, namespace, roxygen2, testthat, CI, and preservation checks for existing `mdsbm` behavior.
+2. **Dynamic data layer:** validate lists of square matrices, build `dynamic_network` with `actor_time`, `dyads`, and `lineage`, and handle actor entry/exit.
+3. **Family/objective metadata:** define binomial and PPML handling, common result fields, and `pseudo = FALSE/TRUE` semantics.
+4. **Time-specific GLM fitting:** fit independent per-time models with R GLM machinery and expose stable internal fit objects.
+5. **Markov transition and local scoring:** implement smoothed transition/prior penalties on the `-2 * log(probability)` deviance/loss scale.
+6. **First R reference optimizer:** implement deterministic mdsbm-style actor-time reassignment and objective accounting.
+7. **Initialization/random starts:** add reproducible initialization, controlled random starts, and deterministic seed behavior.
+8. **Diagnostics/objective history:** report convergence, stopping criteria, objective history, and pseudo-likelihood notes.
+9. **C++ scoring backend:** add Rcpp scoring/update loops only after R reference equivalence tests are established.
+10. **Model selection and later families:** add model-selection support and, after review, Poisson and Gaussian/normal families.
+11. **Split/merge lineage support:** generalize lineage aggregation without blocking future unit split/merge behavior.
+
+## Early-task non-goals
+
+Early tasks do not include broad refactoring, pooled/shared GLM coefficients across time, exact refitting for every candidate move as the default, full C++ GLM fitting, split/merge estimation, arbitrary C++ formula support, or CRAN-readiness claims. Preserve existing static GLM and `mdsbm` behavior unless a task explicitly changes it.
+
 ### Avoid full C++ GLM fitting initially
 
 Do not reimplement GLM IRLS in C++ at the beginning. It would add risk around family handling, link functions, weights, offsets, convergence, separation, and rank deficiency.
