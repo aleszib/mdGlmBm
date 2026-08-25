@@ -86,6 +86,28 @@ score_actor_time_candidates(
 candidate memberships. The dynamic GLM-Markov optimizer is still not
 implemented, so this is a reference scoring layer only.
 
+## Reference optimizer
+
+```r
+Y <- list(
+  t1 = matrix(c(0, 1, 0, 0), nrow = 2, byrow = TRUE),
+  t2 = matrix(c(0, 1, 1, 0, 0, 1, 1, 0, 0), nrow = 3, byrow = TRUE)
+)
+dimnames(Y$t1) <- list(c("A", "B"), c("A", "B"))
+dimnames(Y$t2) <- list(c("A", "B", "C"), c("A", "B", "C"))
+
+dn <- as_dynamic_network(Y)
+init <- data.frame(unit_id = dn$actor_time$unit_id, membership = 1L)
+
+fit <- fit_dynamic_glm_blockmodel(dn, membership = init, k = 1, max_iter = 1)
+fit$membership
+fit$objective_history
+```
+
+This is the first R reference dynamic optimizer. It requires a supplied initial
+membership table and fixed `K`; it does not yet do random starts, C++ scoring,
+split/merge, or automatic model selection.
+
 ## Legacy dynamic example
 
 ```r
@@ -127,4 +149,6 @@ dn$lineage
   observation models at fixed memberships.
 - `estimate_markov_transitions()`, `estimate_membership_prior()`, and
   `score_actor_time_candidates()` provide the reference dynamic scoring layer.
+- `fit_dynamic_glm_blockmodel()` is the first R reference dynamic optimizer
+  for fixed `K` and supplied starting memberships.
 - The dynamic GLM-Markov optimizer is still pending and will be implemented in a later task.

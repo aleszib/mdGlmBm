@@ -577,14 +577,14 @@ score_actor_time_candidates <- function(x, fit, membership = NULL,
     if (nrow(lineages_prev) > 0L) {
       prev_clusters <- unname(mem_lookup[as.character(lineages_prev$from_unit)])
       prev_probs <- transition_probs[cbind(as.character(prev_clusters), as.character(candidate))]
-      prev_penalty <- sum(.transition_penalty(prev_probs))
+      prev_penalty <- sum(.transition_penalty(prev_probs) * lineages_prev$weight)
     }
 
     next_penalty <- 0
     if (nrow(lineages_next) > 0L) {
       next_clusters <- unname(mem_lookup[as.character(lineages_next$to_unit)])
       next_probs <- transition_probs[cbind(as.character(candidate), as.character(next_clusters))]
-      next_penalty <- sum(.transition_penalty(next_probs))
+      next_penalty <- sum(.transition_penalty(next_probs) * lineages_next$weight)
     }
 
     prior_penalty <- 0
