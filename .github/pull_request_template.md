@@ -36,10 +36,23 @@ Results:
 
 ## Safety / scope control
 
+- [ ] Read `AGENTS.md`
+- [ ] PR is small and task-scoped
+- [ ] No unrelated broad refactoring
 - [ ] No unrelated files changed
 - [ ] No production secrets or credentials touched
 - [ ] No direct merge to main
 - [ ] Documentation updated if behavior changed
+
+## Completion checklist
+
+- [ ] Tests added or updated for every behavior change
+- [ ] Documentation updated
+- [ ] `Rscript -e "devtools::document()"` passed
+- [ ] `Rscript -e "devtools::test()"` passed
+- [ ] `_R_CHECK_FORCE_SUGGESTS_=false Rscript -e 'rcmdcheck::rcmdcheck(args = "--no-manual", error_on = "error")'` passed
+- [ ] Limitations documented
+- [ ] Next task proposed
 
 ## Known limitations
 

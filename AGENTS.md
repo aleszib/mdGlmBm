@@ -1,5 +1,9 @@
 # AGENTS.md
 
+## Governing instructions
+
+Every agent must read this file before doing repository work. These instructions govern Codex CLI work in this repository. Pull requests must be small, reviewable, and task-scoped. Do not implement broad, unrequested features or infer new statistical methodology; document open methodological questions and request human review.
+
 ## Project mission
 
 This repository is being developed into an R package for dynamic GLM-based blockmodeling. The long-term model should preserve the dynamic optimization logic of `mdsbm`, while replacing the static Bernoulli/block-density observation component with GLM-based blockmodeling.
@@ -81,11 +85,12 @@ Do not optimize before tests define the intended statistical behavior.
 - Avoid `blockmodeling:::` internal functions. If unavoidable, isolate the use in one internal helper and document the risk.
 - Keep public functions stable and small.
 - Preserve existing `mdsbm` functions during package consolidation unless explicitly instructed otherwise.
+- Do not remove or rewrite existing `mdsbm` or static GLM behavior unless explicitly requested.
 - Do not claim CRAN readiness, production readiness, or statistical finality in early PRs.
 
 ## Testing requirements
 
-Every implementation PR must include or update tests unless it is documentation-only.
+Tests are required for every behavior change and every implementation PR. Documentation-only changes may skip package checks when no R code is changed, but must still run relevant documentation and diff checks.
 
 Minimum first-test areas:
 
@@ -100,6 +105,14 @@ Minimum first-test areas:
 
 Tests should be small, deterministic, and fast. Long-running examples belong in vignettes or optional tests, not CI.
 
+Every PR must run:
+
+```sh
+Rscript -e "devtools::document()"
+Rscript -e "devtools::test()"
+_R_CHECK_FORCE_SUGGESTS_=false Rscript -e 'rcmdcheck::rcmdcheck(args = "--no-manual", error_on = "error")'
+```
+
 ## Workflow rules
 
 - Start each task from current `main` unless instructed otherwise.
@@ -110,6 +123,8 @@ Tests should be small, deterministic, and fast. Long-running examples belong in 
 - If GitHub authentication fails, first try to refresh authentication. If that fails, stop and ask the human to authenticate.
 - You are running in a hardened WSL Ubuntu guest and may use passwordless sudo for local system dependencies inside the guest only.
 - Do not access production secrets, host credentials, cloud credentials, or files outside the repository except for normal local dependency installation in the guest.
+
+The Codex environment is Codex CLI with `--yolo`, the `gpt-5.4-Mini` model, and a hardened WSL Ubuntu guest. Passwordless `sudo` may be used only for local guest dependencies. Do not access host secrets or unrelated files.
 
 ## Required final report format
 

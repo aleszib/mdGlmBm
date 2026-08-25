@@ -1,6 +1,13 @@
 # Roadmap
 
-## 0. Bootstrap instructions and CI
+## Short term
+
+- Complete the first R reference optimizer.
+- Add reproducible initialization and random starts.
+- Add convergence and objective diagnostics.
+- Provide small deterministic examples.
+
+## Bootstrap and foundation
 
 Install project instructions, statistical doctrine, PR template, and GitHub Actions workflow.
 
@@ -27,6 +34,19 @@ Implement the first `fit_markov_glm_blockmodel()` using independent time-specifi
 ## 6. C++ scoring backend
 
 Optimize local scoring and membership sweeps in C++/Rcpp. Keep R backend for correctness tests.
+
+## Medium term
+
+- Add R/C++ performance and equivalence tests.
+- Profile before optimizing further.
+- Add Poisson and Gaussian/normal where statistically appropriate.
+
+## Long term
+
+- Support split/merge lineage.
+- Add principled model selection.
+- Build robust package documentation and examples.
+- Pursue CRAN-readiness only after methods, API, tests, and documentation stabilize.
 
 ## 7. Extended families
 
