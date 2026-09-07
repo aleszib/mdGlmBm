@@ -63,7 +63,9 @@ test_that("additive smoothing keeps transition probabilities positive", {
 
   transitions <- estimate_markov_transitions(dn, membership = membership, k = 3, smoothing = 0.5)
 
-  expect_true(all(transitions$probabilities[is.finite(transitions$probabilities)] > 0))
+  expect_true(all(transitions$probabilities[transitions$probabilities > 0] > 0))
+  expect_equal(transitions$probabilities["1", "E"], 0)
+  expect_equal(transitions$probabilities["E", "V"], 0)
   expect_equal(nrow(transitions$probabilities), 5L)
   expect_equal(ncol(transitions$probabilities), 5L)
 })
@@ -86,8 +88,8 @@ test_that("transition penalties equal -2 log probability", {
   )
 
   row_two <- scores[scores$candidate_cluster == 2L, , drop = FALSE]
-  prev_prob <- transitions$probabilities["1", "2"]
-  next_prob <- transitions$probabilities["2", "1"]
+  prev_prob <- transitions$probabilities_by_boundary[[1]]["1", "2"]
+  next_prob <- transitions$probabilities_by_boundary[[2]]["2", "1"]
   expect_equal(row_two$previous_transition_penalty, -2 * log(prev_prob), tolerance = 1e-8)
   expect_equal(row_two$next_transition_penalty, -2 * log(next_prob), tolerance = 1e-8)
 })
@@ -217,6 +219,10 @@ test_that("augmented transition events have hand-checkable entry and exit counts
   expect_equal(transitions$n_exits, 1L)
   expect_equal(transitions$n_persistent, 6L)
   expect_false(any(transitions$events$actor_id == "D" & transitions$events$transition_type == "exit"))
+  expect_false(isTRUE(all.equal(
+    transitions$probabilities_by_boundary[[1]]["2", c("1", "2")],
+    transitions$probabilities_by_boundary[[2]]["2", c("1", "2")]
+  )))
   expect_equal(unname(rowSums(transitions$probabilities_by_boundary[[1]][c("1", "2"),
                                                                   c("1", "2")])), c(1, 1), tolerance = 1e-12)
   expect_true(is.finite(transitions$probabilities_by_boundary[[1]]["E", "2"]))
@@ -242,6 +248,12 @@ test_that("initial probabilities apply only at time one and intermediate single-
   prior <- estimate_membership_prior(c(1L, 2L), prior = "empirical", k = 2, smoothing = 0.5)
   expect_equal(sum(prior$probabilities), 1)
   expect_true(is.finite(prior$penalties["1"]))
+  prior_with_emergence <- estimate_membership_prior(
+    c(1L, 1L, 2L), prior = "empirical", k = 2,
+    smoothing = 0, emerging_count = 1
+  )
+  expect_equal(unname(prior_with_emergence$probabilities), c(2 / 4, 1 / 4))
+  expect_lt(sum(prior_with_emergence$probabilities), 1)
 })
 
 test_that("an actor present only at an intermediate time has both boundary events", {

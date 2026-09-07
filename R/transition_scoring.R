@@ -187,7 +187,7 @@ estimate_markov_transitions <- function(x, membership, k = NULL, smoothing = 0.5
   if (has_exit) allowed[seq_len(k), ncol(counts)] <- TRUE
   if (has_entry) allowed[nrow(counts) - 1L, seq_len(k)] <- TRUE
   allowed[nrow(counts), ] <- FALSE
-  out <- matrix(NA_real_, nrow(counts), ncol(counts), dimnames = dimnames(counts))
+  out <- matrix(0, nrow(counts), ncol(counts), dimnames = dimnames(counts))
   for (i in seq_len(nrow(counts))) {
     if (any(allowed[i, ])) {
       values <- counts[i, allowed[i, ]] + smoothing
@@ -247,6 +247,8 @@ estimate_markov_transitions <- function(x, membership, k = NULL, smoothing = 0.5
 #'   the supplied memberships.
 #' @param smoothing Additive smoothing used for the empirical prior.
 #' @param labels Optional cluster labels to carry into the result.
+#' @param emerging_count Fixed emerging-state count included in the initial
+#'   normalization; primarily used internally by the dynamic optimizer.
 #'
 #' @return A list of class `membership_prior` with elements:
 #' \describe{
@@ -268,13 +270,19 @@ estimate_membership_prior <- function(membership,
                                       prior = c("empirical", "uniform", "none"),
                                       k = NULL,
                                       smoothing = 0.5,
-                                      labels = NULL) {
+                                      labels = NULL,
+                                      emerging_count = 0L) {
   prior <- match.arg(prior)
   membership <- .membership_to_integer_vector(membership)
 
   if (!is.numeric(smoothing) || length(smoothing) != 1L || is.na(smoothing) || smoothing < 0) {
     stop("`smoothing` must be a single non-negative numeric value.", call. = FALSE)
   }
+  if (!is.numeric(emerging_count) || length(emerging_count) != 1L ||
+      is.na(emerging_count) || !is.finite(emerging_count) || emerging_count < 0) {
+    stop("`emerging_count` must be a single non-negative numeric value.", call. = FALSE)
+  }
+  emerging_count <- as.numeric(emerging_count)
 
   if (is.null(labels)) {
     labels <- .transition_cluster_labels(membership, k = k)
@@ -308,10 +316,11 @@ estimate_membership_prior <- function(membership,
   } else {
     counts <- tabulate(factor(membership, levels = labels), nbins = k)
     names(counts) <- labels_chr
+    denominator <- sum(counts) + emerging_count + k * smoothing
     if (prior == "uniform") {
-      probabilities <- rep(1 / k, k)
+      probabilities <- rep((sum(counts) + k * smoothing) / denominator / k, k)
     } else {
-      probabilities <- (counts + smoothing) / (sum(counts) + k * smoothing)
+      probabilities <- (counts + smoothing) / denominator
     }
     names(probabilities) <- labels_chr
     penalties <- .transition_penalty(probabilities)
@@ -330,6 +339,7 @@ estimate_membership_prior <- function(membership,
     probabilities = probabilities,
     penalties = penalties,
     smoothing = smoothing,
+    emerging_count = emerging_count,
     n = length(membership),
     criterion_note = criterion_note,
     call = match.call()
@@ -620,11 +630,15 @@ score_actor_time_candidates <- function(x, fit, membership = NULL,
   } else {
     prior_mode <- match.arg(prior)
     prior_obj <- estimate_membership_prior(
-      membership = membership_table$membership,
+      membership = membership_table$membership[membership_table$time_index == 1L],
       prior = prior_mode,
       k = length(transition_labels),
       smoothing = prior_smoothing,
-      labels = transition_labels
+      labels = transition_labels,
+      emerging_count = if (inherits(transition, "markov_transitions")) {
+        sum(transition$events$transition_type == "entry" &
+              transition$events$boundary == 1L)
+      } else 0L
     )
   }
   prior_probs <- .membership_prior_probs(prior_obj)
@@ -695,7 +709,7 @@ score_actor_time_candidates <- function(x, fit, membership = NULL,
     if (nrow(previous_event) > 0L) {
       prev_probability <- .markov_probability(
         transition,
-        if (previous_event$transition_type[[1L]] == "persistent") NA_integer_ else previous_event$boundary[[1L]],
+        previous_event$boundary[[1L]],
         previous_event$from_state[[1L]], candidate
       )
       prev_penalty <- sum(.transition_penalty(prev_probability) * previous_event$weight)
@@ -705,7 +719,7 @@ score_actor_time_candidates <- function(x, fit, membership = NULL,
     if (nrow(next_event) > 0L) {
       next_probability <- .markov_probability(
         transition,
-        if (next_event$transition_type[[1L]] == "persistent") NA_integer_ else next_event$boundary[[1L]],
+        next_event$boundary[[1L]],
         candidate, next_event$to_state[[1L]]
       )
       next_penalty <- sum(.transition_penalty(next_probability) * next_event$weight)

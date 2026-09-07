@@ -9,7 +9,8 @@ estimate_membership_prior(
   prior = c("empirical", "uniform", "none"),
   k = NULL,
   smoothing = 0.5,
-  labels = NULL
+  labels = NULL,
+  emerging_count = 0L
 )
 }
 \arguments{
@@ -26,6 +27,9 @@ the supplied memberships.}
 \item{smoothing}{Additive smoothing used for the empirical prior.}
 
 \item{labels}{Optional cluster labels to carry into the result.}
+
+\item{emerging_count}{Fixed emerging-state count included in the initial
+normalization; primarily used internally by the dynamic optimizer.}
 }
 \value{
 A list of class \code{membership_prior} with elements:

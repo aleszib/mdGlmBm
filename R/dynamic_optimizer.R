@@ -22,6 +22,7 @@
 
   transition_penalty_total <- 0
   transition_logLik_total <- 0
+  transition_component_by_boundary <- numeric(max(0L, length(network$times) - 1L))
   ordinary_transition_penalty_total <- 0
   entry_transition_penalty_total <- 0
   exit_transition_penalty_total <- 0
@@ -33,14 +34,14 @@
     for (event_idx in seq_len(nrow(events))) {
       event <- events[event_idx, , drop = FALSE]
       probability <- .markov_probability(
-        transition,
-        if (event$transition_type == "persistent") NA_integer_ else event$boundary,
-        event$from_state, event$to_state
+        transition, event$boundary, event$from_state, event$to_state
       )
       penalty <- .transition_penalty(probability) * event$weight
       log_probability <- log(probability) * event$weight
       transition_penalty_total <- transition_penalty_total + penalty
       transition_logLik_total <- transition_logLik_total + log_probability
+      transition_component_by_boundary[event$boundary] <-
+        transition_component_by_boundary[event$boundary] + penalty
       if (event$transition_type == "persistent") {
         ordinary_transition_penalty_total <- ordinary_transition_penalty_total + penalty
         ordinary_transition_logLik_total <- ordinary_transition_logLik_total + log_probability
@@ -75,6 +76,7 @@
     deviance = objective,
     deviance_total = deviance_total,
     transition_penalty_total = transition_penalty_total,
+    transition_component_by_boundary = transition_component_by_boundary,
     prior_penalty_total = initial_penalty_total,
     initial_penalty_total = initial_penalty_total,
     ordinary_transition_penalty_total = ordinary_transition_penalty_total,
@@ -392,7 +394,9 @@ fit_dynamic_glm_blockmodel <- function(network, membership = NULL, k = NULL,
     prior = prior,
     k = k,
     smoothing = smoothing,
-    labels = candidate_clusters
+    labels = candidate_clusters,
+    emerging_count = sum(transition$events$transition_type == "entry" &
+                           transition$events$boundary == 1L)
   )
 
   comps <- .dynamic_glm_objective_components(
@@ -480,7 +484,9 @@ fit_dynamic_glm_blockmodel <- function(network, membership = NULL, k = NULL,
           prior = prior,
           k = k,
           smoothing = smoothing,
-          labels = candidate_clusters
+          labels = candidate_clusters,
+          emerging_count = sum(transition$events$transition_type == "entry" &
+                                 transition$events$boundary == 1L)
         )
       }
 
@@ -550,6 +556,7 @@ fit_dynamic_glm_blockmodel <- function(network, membership = NULL, k = NULL,
     deviance = comps$deviance,
     deviance_total = comps$deviance_total,
     transition_penalty_total = comps$transition_penalty_total,
+    transition_component_by_boundary = comps$transition_component_by_boundary,
     prior_penalty_total = comps$prior_penalty_total,
     initial_penalty_total = comps$initial_penalty_total,
     ordinary_transition_penalty_total = comps$ordinary_transition_penalty_total,
@@ -630,6 +637,7 @@ summary.dynamic_glm_blockmodel <- function(object, ...) {
     objective_history = object$objective_history,
     deviance_total = object$deviance_total,
     transition_penalty_total = object$transition_penalty_total,
+    transition_component_by_boundary = object$transition_component_by_boundary,
     prior_penalty_total = object$prior_penalty_total,
     initial_penalty_total = object$initial_penalty_total,
     ordinary_transition_penalty_total = object$ordinary_transition_penalty_total,

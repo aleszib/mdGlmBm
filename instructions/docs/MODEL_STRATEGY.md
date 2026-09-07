@@ -49,7 +49,7 @@ Boundary cases:
 - actors present at the first time use the initial substantive-state distribution;
 - future split/merge: dynamic terms become sums over all lineage predecessors/successors.
 
-Transition probabilities are smoothed before taking logs so numerical zeros do not create unintended infinite candidate penalties. Auxiliary states are never GLM blocks or ordinary candidate labels. The complete objective uses an initial-state term only at the first observed time and does not apply a generic membership prior independently at every actor-time. The current R reference retains pooled substantive transition estimates for compatibility with the established optimizer, while retaining boundary-specific augmented event estimates for entry/exit auditing.
+Transition probabilities are smoothed before taking logs so numerical zeros do not create unintended infinite candidate penalties. Auxiliary states are never GLM blocks or ordinary candidate labels. The complete objective uses an initial-state term only at the first observed time and does not apply a generic membership prior independently at every actor-time. Every observed boundary has its own substantive and augmented transition distribution; transition probabilities are not pooled over time.
 
 The `prior` options therefore mean: `"empirical"` estimates the initial
 substantive distribution from time-one memberships, `"uniform"` uses equal

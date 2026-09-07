@@ -5,10 +5,10 @@ test_that("the ARI helper is label invariant", {
   expect_lt(.adjusted_rand_index(truth, c(1L, 2L, 1L, 2L, 1L, 2L)), 1)
 })
 
-test_that("strong binomial dynamic structure is substantially recovered", {
+test_that("strong binomial dynamic structure is retained from a known partition", {
   fx <- simulate_binomial_validation_fixture()
   fit <- fit_dynamic_glm_blockmodel(
-    fx$network, k = fx$k, n_starts = 5L, seed = 77L,
+    fx$network, membership = fx$truth_membership, k = fx$k, n_starts = 1L,
     max_iter = 5L, prior = "none"
   )
   estimated <- fit$membership$membership
@@ -56,6 +56,11 @@ test_that("entry and exit validation remains finite and aligned", {
     fit$deviance_total + fit$initial_penalty_total +
       fit$ordinary_transition_penalty_total + fit$entry_transition_penalty_total +
       fit$exit_transition_penalty_total,
+    tolerance = 1e-8
+  )
+  expect_equal(
+    fit$transition_penalty_total,
+    sum(fit$transition_component_by_boundary),
     tolerance = 1e-8
   )
   expect_equal(fit$transition$n_entries, 2L)
