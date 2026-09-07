@@ -23,6 +23,23 @@ test_that("strong binomial dynamic structure is retained from a known partition"
   expect_true(all(is.finite(fit$objective)))
 })
 
+test_that("random-start search reaches a strong partition basin", {
+  fx <- simulate_binomial_validation_fixture()
+  fit <- fit_dynamic_glm_blockmodel(
+    fx$network, k = fx$k, n_starts = 20L, seed = 77L,
+    max_iter = 5L, prior = "none"
+  )
+  per_time_ari <- vapply(fit$starts, function(start) {
+    mean(vapply(seq_along(fx$network$times), function(i) {
+      idx <- fx$network$actor_time$time_index == i
+      .adjusted_rand_index(start$final_membership$membership[idx],
+                           fx$truth_membership$membership[idx])
+    }, numeric(1)))
+  }, numeric(1))
+  expect_gte(max(per_time_ari), 0.8)
+  expect_equal(fit$objective, min(fit$start_objectives), tolerance = 1e-8)
+})
+
 test_that("entry and exit validation remains finite and aligned", {
   fx <- simulate_entry_exit_fixture()
   dn <- fx$network
