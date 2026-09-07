@@ -76,8 +76,8 @@ Do not implement split/merge first. However, the lineage table should be general
 The R reference transition object retains semantic state names, boundary event
 metadata, augmented counts, and smoothed probabilities. The first observed
 time uses an initial substantive membership distribution; later entrants use
-the emerging state. Re-entry is represented as separate exit and entry events
-on the two observed boundaries rather than as an artificial absence chain.
+the emerging state. Re-entry under the same actor ID is not supported by the
+current manuscript model; represent a later appearance as a new actor ID.
 
 ## Diagonal and directedness
 

@@ -52,6 +52,12 @@ estimate_markov_transitions <- function(x, membership, k = NULL, smoothing = 0.5
     actor_time = x$actor_time,
     time_labels = x$times
   )
+  if (.dynamic_network_has_reentry(x)) {
+    stop(
+      "Re-entry of an actor ID after an absence is not supported; use a new ID for a new appearance.",
+      call. = FALSE
+    )
+  }
   labels <- .transition_cluster_labels(membership_table$membership, k = k)
   state_labels <- c(as.character(labels), "E", "V")
   events <- .build_transition_events(x, membership_table)
@@ -102,6 +108,14 @@ estimate_markov_transitions <- function(x, membership, k = NULL, smoothing = 0.5
   )
   class(out) <- "markov_transitions"
   out
+}
+
+#' @keywords internal
+.dynamic_network_has_reentry <- function(x) {
+  active_times <- split(x$actor_time$time_index, x$actor_time$actor_id)
+  any(vapply(active_times, function(times) {
+    length(times) > 1L && any(diff(sort(unique(times))) > 1L)
+  }, logical(1)))
 }
 
 #' @keywords internal

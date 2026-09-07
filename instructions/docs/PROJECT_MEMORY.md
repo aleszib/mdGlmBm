@@ -124,8 +124,8 @@ not create GLM dyads or candidate cluster labels. Actors present at the first
 observed time use an initial substantive membership distribution, while a
 generic empirical prior is not independently applied to every later
 actor-time. Each observed boundary has its own transition distribution; no
-temporal pooling is assumed. Re-entry is represented by separate boundary
-events. The R implementation remains the correctness oracle, and C++ work is
+temporal pooling is assumed. Re-entry under one actor ID is rejected, following the manuscript's
+contiguous-presence assumption; a later appearance should use a new ID. The R implementation remains the correctness oracle, and C++ work is
 deferred until these corrected semantics pass validation.
 
 ## Development milestones

@@ -280,7 +280,7 @@ test_that("an actor present only at an intermediate time has both boundary event
   ))))
 })
 
-test_that("re-entry is represented as separate exit and entry events", {
+test_that("re-entry is rejected according to the manuscript model", {
   actors_by_time <- list(c("A", "B"), c("B", "C"), c("A", "B", "C"))
   Y <- lapply(actors_by_time, function(actors) {
     matrix(0, length(actors), length(actors), dimnames = list(actors, actors))
@@ -291,8 +291,8 @@ test_that("re-entry is represented as separate exit and entry events", {
     membership = c(1L, 2L, 2L, 1L, 1L, 2L, 1L),
     stringsAsFactors = FALSE
   )
-  events <- estimate_markov_transitions(dn, membership, k = 2, smoothing = 0.5)$events
-  expect_equal(events$transition_type[events$actor_id == "A"], c("exit", "entry"))
-  expect_equal(events$from_state[events$actor_id == "A"], c("1", "E"))
-  expect_equal(events$to_state[events$actor_id == "A"], c("V", "1"))
+  expect_error(
+    estimate_markov_transitions(dn, membership, k = 2, smoothing = 0.5),
+    "Re-entry"
+  )
 })
