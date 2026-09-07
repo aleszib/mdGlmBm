@@ -305,6 +305,7 @@ fit_dynamic_glm_blockmodel <- function(network, membership = NULL, k = NULL,
       final_membership = x$membership,
       objective = x$objective,
       converged = x$converged,
+      stopping_reason = x$stopping_reason,
       n_iter = x$n_iter,
       n_changes = x$n_changes,
       objective_history = x$objective_history,
@@ -400,6 +401,7 @@ fit_dynamic_glm_blockmodel <- function(network, membership = NULL, k = NULL,
   total_changes <- 0L
   n_iter <- 0L
   converged <- FALSE
+  stopping_reason <- if (max_iter == 0) "max_iter" else NULL
 
   if (max_iter > 0L) {
     for (iter in seq_len(as.integer(max_iter))) {
@@ -486,9 +488,14 @@ fit_dynamic_glm_blockmodel <- function(network, membership = NULL, k = NULL,
 
       if (sweep_changes == 0L) {
         converged <- TRUE
+        stopping_reason <- "no_changes"
         break
       }
     }
+  }
+
+  if (is.null(stopping_reason)) {
+    stopping_reason <- "max_iter"
   }
 
   history <- do.call(rbind, history)
@@ -506,6 +513,7 @@ fit_dynamic_glm_blockmodel <- function(network, membership = NULL, k = NULL,
     history = history,
     n_iter = n_iter,
     converged = converged,
+    stopping_reason = stopping_reason,
     n_changes = total_changes,
     logLik = comps$logLik,
     BIC = comps$BIC,
@@ -549,6 +557,7 @@ print.dynamic_glm_blockmodel <- function(x, ...) {
   cat(sprintf("  k: %s\n", format(x$k)))
   cat(sprintf("  n_iter: %s\n", format(x$n_iter)))
   cat(sprintf("  converged: %s\n", if (isTRUE(x$converged)) "TRUE" else "FALSE"))
+  cat(sprintf("  stopping_reason: %s\n", x$stopping_reason))
   cat(sprintf("  logLik: %s\n", format(x$logLik)))
   cat(sprintf("  BIC: %s\n", format(x$BIC)))
   cat(sprintf("  ICL: %s\n", format(x$ICL)))
@@ -578,6 +587,7 @@ summary.dynamic_glm_blockmodel <- function(object, ...) {
     pseudo = object$pseudo,
     n_iter = object$n_iter,
     converged = object$converged,
+    stopping_reason = object$stopping_reason,
     n_changes = object$n_changes,
     logLik = object$logLik,
     BIC = object$BIC,

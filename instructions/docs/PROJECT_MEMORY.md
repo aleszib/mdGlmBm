@@ -105,6 +105,14 @@ as start 1 and additional starts are random. If no membership is supplied, a
 fixed `k` is required and each initial partition represents every cluster when
 feasible. Automatic selection of `K` is deliberately deferred.
 
+The R reference optimizer now has controlled simulation-validation coverage.
+Recovery is assessed with a label-invariant adjusted Rand index (ARI), not raw
+cluster-label agreement. Validation includes strong-signal binomial dynamics,
+actor entry/exit, PPML count-data smoke checks, multiple-start selection,
+objective-component accounting, global label permutation, actor reordering,
+local score decomposition, and convergence diagnostics. These tests establish
+implementation evidence on fixtures; they do not claim general consistency.
+
 ## Development milestones
 
 ### Milestone 0: Instruction and CI bootstrap
