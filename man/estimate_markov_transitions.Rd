@@ -2,7 +2,7 @@
 % Please edit documentation in R/transition_scoring.R
 \name{estimate_markov_transitions}
 \alias{estimate_markov_transitions}
-\title{Estimate Markov transition probabilities from a dynamic network}
+\title{Estimate augmented Markov transition probabilities from a dynamic network}
 \usage{
 estimate_markov_transitions(x, membership, k = NULL, smoothing = 0.5)
 }
@@ -22,19 +22,21 @@ transition probabilities when a row has sparse or empty counts.}
 \value{
 A list of class \code{markov_transitions} with elements:
 \describe{
-\item{counts}{Transition count matrix.}
-\item{probabilities}{Row-normalized transition probability matrix.}
+\item{counts}{Aggregate augmented transition count matrix.}
+\item{probabilities}{Aggregate row-normalized transition probability matrix.}
 \item{penalties}{Transition penalties on the deviance scale.}
 \item{labels}{Cluster labels used for the matrix dimensions.}
 \item{smoothing}{Additive smoothing constant.}
-\item{n_lineage_edges_used}{Number of lineage edges included.}
+\item{probabilities_by_boundary}{Boundary-specific probability matrices.}
+\item{events}{Auditable transition-event table.}
 \item{membership}{Normalized actor-time membership table.}
 \item{criterion_note}{Short note describing the estimate.}
 }
 }
 \description{
-Estimate cluster-to-cluster transition counts and smoothed transition
-probabilities from the identity lineage edges in a \code{dynamic_network} object.
+Estimate substantive-to-substantive, emerging-to-substantive, and
+substantive-to-vanishing transitions. The two auxiliary states are used only
+by the dynamic membership model; they are not GLM blocks.
 }
 \examples{
 Y <- list(

@@ -16,6 +16,13 @@ Each matrix must have row and column names identifying active actors at that tim
 
 Actors may enter or leave over time. The same actor ID in adjacent time points creates a lineage link. Missing actor ID at the previous time point means entry. Missing actor ID at the next time point means exit.
 
+For dynamic scoring, each observed boundary is also represented as a transition
+event. Persistent actors produce substantive-to-substantive events; entrants
+produce `E -> k` events from an emerging virtual state; and actors leaving
+before a later observed time produce `k -> V` events to a vanishing virtual
+state. `E` and `V` are transition states only and never create GLM dyads or
+observation-model blocks. Absence at both adjacent times creates no event.
+
 ## Accepted network storage
 
 Initial implementation should support base R dense matrices. Design validation so that sparse Matrix classes can be added without changing the public API.
@@ -65,6 +72,12 @@ For the first implementation, lineage uses only one-to-one same-ID links between
 ## Long-term split/merge compatibility
 
 Do not implement split/merge first. However, the lineage table should be general enough that future split/merge relations can be represented as multiple predecessor or successor links.
+
+The R reference transition object retains semantic state names, boundary event
+metadata, augmented counts, and smoothed probabilities. The first observed
+time uses an initial substantive membership distribution; later entrants use
+the emerging state. Re-entry is represented as separate exit and entry events
+on the two observed boundaries rather than as an artificial absence chain.
 
 ## Diagonal and directedness
 

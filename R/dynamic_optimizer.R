@@ -20,40 +20,53 @@
     stop("`fits` must be a `time_glm_blockmodels` object.", call. = FALSE)
   }
 
-  mem_lookup <- membership$membership
-  names(mem_lookup) <- as.character(membership$unit_id)
-
   transition_penalty_total <- 0
   transition_logLik_total <- 0
-  lineage <- network$lineage
-  if (nrow(lineage) > 0L) {
-    lineage <- lineage[lineage$relation == "identity", , drop = FALSE]
-    if (nrow(lineage) > 0L) {
-      from_cluster <- unname(mem_lookup[as.character(lineage$from_unit)])
-      to_cluster <- unname(mem_lookup[as.character(lineage$to_unit)])
-      valid <- !is.na(from_cluster) & !is.na(to_cluster) & is.finite(lineage$weight) & lineage$weight > 0
-      if (any(valid)) {
-        probs <- transition$probabilities[
-          cbind(as.character(from_cluster[valid]), as.character(to_cluster[valid]))
-        ]
-        transition_penalty_total <- sum(.transition_penalty(probs) * lineage$weight[valid])
-        transition_logLik_total <- sum(log(probs) * lineage$weight[valid])
+  ordinary_transition_penalty_total <- 0
+  entry_transition_penalty_total <- 0
+  exit_transition_penalty_total <- 0
+  ordinary_transition_logLik_total <- 0
+  entry_transition_logLik_total <- 0
+  exit_transition_logLik_total <- 0
+  events <- transition$events
+  if (nrow(events) > 0L) {
+    for (event_idx in seq_len(nrow(events))) {
+      event <- events[event_idx, , drop = FALSE]
+      probability <- .markov_probability(
+        transition,
+        if (event$transition_type == "persistent") NA_integer_ else event$boundary,
+        event$from_state, event$to_state
+      )
+      penalty <- .transition_penalty(probability) * event$weight
+      log_probability <- log(probability) * event$weight
+      transition_penalty_total <- transition_penalty_total + penalty
+      transition_logLik_total <- transition_logLik_total + log_probability
+      if (event$transition_type == "persistent") {
+        ordinary_transition_penalty_total <- ordinary_transition_penalty_total + penalty
+        ordinary_transition_logLik_total <- ordinary_transition_logLik_total + log_probability
+      } else if (event$transition_type == "entry") {
+        entry_transition_penalty_total <- entry_transition_penalty_total + penalty
+        entry_transition_logLik_total <- entry_transition_logLik_total + log_probability
+      } else {
+        exit_transition_penalty_total <- exit_transition_penalty_total + penalty
+        exit_transition_logLik_total <- exit_transition_logLik_total + log_probability
       }
     }
   }
 
-  prior_penalty_total <- 0
-  prior_logLik_total <- 0
+  initial_penalty_total <- 0
+  initial_logLik_total <- 0
   if (!is.null(prior) && !identical(prior$prior, "none")) {
     prior_probs <- .membership_prior_probs(prior)
-    mem_prob <- prior_probs[as.character(membership$membership)]
-    prior_penalty_total <- sum(.transition_penalty(mem_prob))
-    prior_logLik_total <- sum(log(mem_prob))
+    initial_rows <- membership$time_index == 1L
+    mem_prob <- prior_probs[as.character(membership$membership[initial_rows])]
+    initial_penalty_total <- sum(.transition_penalty(mem_prob))
+    initial_logLik_total <- sum(log(mem_prob))
   }
 
   deviance_total <- fits$deviance_total
-  objective <- deviance_total + transition_penalty_total + prior_penalty_total
-  logLik_total <- fits$logLik_total + transition_logLik_total + prior_logLik_total
+  objective <- deviance_total + transition_penalty_total + initial_penalty_total
+  logLik_total <- fits$logLik_total + transition_logLik_total + initial_logLik_total
 
   list(
     logLik = logLik_total,
@@ -62,13 +75,21 @@
     deviance = objective,
     deviance_total = deviance_total,
     transition_penalty_total = transition_penalty_total,
-    prior_penalty_total = prior_penalty_total,
+    prior_penalty_total = initial_penalty_total,
+    initial_penalty_total = initial_penalty_total,
+    ordinary_transition_penalty_total = ordinary_transition_penalty_total,
+    entry_transition_penalty_total = entry_transition_penalty_total,
+    exit_transition_penalty_total = exit_transition_penalty_total,
     objective = objective,
     objective_scale = "deviance",
     fit_logLik_total = fits$logLik_total,
     fit_deviance_total = deviance_total,
     transition_logLik_total = transition_logLik_total,
-    prior_logLik_total = prior_logLik_total
+    prior_logLik_total = initial_logLik_total,
+    initial_logLik_total = initial_logLik_total,
+    ordinary_transition_logLik_total = ordinary_transition_logLik_total,
+    entry_transition_logLik_total = entry_transition_logLik_total,
+    exit_transition_logLik_total = exit_transition_logLik_total
   )
 }
 
@@ -367,7 +388,7 @@ fit_dynamic_glm_blockmodel <- function(network, membership = NULL, k = NULL,
     smoothing = smoothing
   )
   prior_obj <- estimate_membership_prior(
-    membership = membership_table$membership,
+    membership = membership_table$membership[membership_table$time_index == 1L],
     prior = prior,
     k = k,
     smoothing = smoothing,
@@ -393,6 +414,10 @@ fit_dynamic_glm_blockmodel <- function(network, membership = NULL, k = NULL,
       deviance_total = comps$deviance_total,
       transition_penalty_total = comps$transition_penalty_total,
       prior_penalty_total = comps$prior_penalty_total,
+      initial_penalty_total = comps$initial_penalty_total,
+      ordinary_transition_penalty_total = comps$ordinary_transition_penalty_total,
+      entry_transition_penalty_total = comps$entry_transition_penalty_total,
+      exit_transition_penalty_total = comps$exit_transition_penalty_total,
       objective = comps$objective,
       stringsAsFactors = FALSE
     )
@@ -451,7 +476,7 @@ fit_dynamic_glm_blockmodel <- function(network, membership = NULL, k = NULL,
           smoothing = smoothing
         )
         prior_obj <- estimate_membership_prior(
-          membership = membership_table$membership,
+          membership = membership_table$membership[membership_table$time_index == 1L],
           prior = prior,
           k = k,
           smoothing = smoothing,
@@ -477,6 +502,10 @@ fit_dynamic_glm_blockmodel <- function(network, membership = NULL, k = NULL,
         deviance_total = comps$deviance_total,
         transition_penalty_total = comps$transition_penalty_total,
         prior_penalty_total = comps$prior_penalty_total,
+        initial_penalty_total = comps$initial_penalty_total,
+        ordinary_transition_penalty_total = comps$ordinary_transition_penalty_total,
+        entry_transition_penalty_total = comps$entry_transition_penalty_total,
+        exit_transition_penalty_total = comps$exit_transition_penalty_total,
         objective = comps$objective,
         stringsAsFactors = FALSE
       )
@@ -522,6 +551,10 @@ fit_dynamic_glm_blockmodel <- function(network, membership = NULL, k = NULL,
     deviance_total = comps$deviance_total,
     transition_penalty_total = comps$transition_penalty_total,
     prior_penalty_total = comps$prior_penalty_total,
+    initial_penalty_total = comps$initial_penalty_total,
+    ordinary_transition_penalty_total = comps$ordinary_transition_penalty_total,
+    entry_transition_penalty_total = comps$entry_transition_penalty_total,
+    exit_transition_penalty_total = comps$exit_transition_penalty_total,
     objective = comps$objective,
     objective_history = history$objective,
     criterion_note = paste(
@@ -598,6 +631,10 @@ summary.dynamic_glm_blockmodel <- function(object, ...) {
     deviance_total = object$deviance_total,
     transition_penalty_total = object$transition_penalty_total,
     prior_penalty_total = object$prior_penalty_total,
+    initial_penalty_total = object$initial_penalty_total,
+    ordinary_transition_penalty_total = object$ordinary_transition_penalty_total,
+    entry_transition_penalty_total = object$entry_transition_penalty_total,
+    exit_transition_penalty_total = object$exit_transition_penalty_total,
     criterion_note = object$criterion_note
   )
   class(summary) <- "summary.dynamic_glm_blockmodel"

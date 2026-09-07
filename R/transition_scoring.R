@@ -1,7 +1,8 @@
-#' Estimate Markov transition probabilities from a dynamic network
+#' Estimate augmented Markov transition probabilities from a dynamic network
 #'
-#' Estimate cluster-to-cluster transition counts and smoothed transition
-#' probabilities from the identity lineage edges in a `dynamic_network` object.
+#' Estimate substantive-to-substantive, emerging-to-substantive, and
+#' substantive-to-vanishing transitions. The two auxiliary states are used only
+#' by the dynamic membership model; they are not GLM blocks.
 #'
 #' @param x A `dynamic_network` object from [as_dynamic_network()].
 #' @param membership Current actor-time memberships aligned to `x$actor_time`.
@@ -14,12 +15,13 @@
 #'
 #' @return A list of class `markov_transitions` with elements:
 #' \describe{
-#'   \item{counts}{Transition count matrix.}
-#'   \item{probabilities}{Row-normalized transition probability matrix.}
+#'   \item{counts}{Aggregate augmented transition count matrix.}
+#'   \item{probabilities}{Aggregate row-normalized transition probability matrix.}
 #'   \item{penalties}{Transition penalties on the deviance scale.}
 #'   \item{labels}{Cluster labels used for the matrix dimensions.}
 #'   \item{smoothing}{Additive smoothing constant.}
-#'   \item{n_lineage_edges_used}{Number of lineage edges included.}
+#'   \item{probabilities_by_boundary}{Boundary-specific probability matrices.}
+#'   \item{events}{Auditable transition-event table.}
 #'   \item{membership}{Normalized actor-time membership table.}
 #'   \item{criterion_note}{Short note describing the estimate.}
 #' }
@@ -51,43 +53,25 @@ estimate_markov_transitions <- function(x, membership, k = NULL, smoothing = 0.5
     time_labels = x$times
   )
   labels <- .transition_cluster_labels(membership_table$membership, k = k)
-  labels_chr <- as.character(labels)
-
-  counts <- matrix(0, nrow = length(labels), ncol = length(labels),
-                   dimnames = list(labels_chr, labels_chr))
-
-  lineage <- x$lineage
-  if (nrow(lineage) > 0L) {
-    lineage <- lineage[lineage$relation == "identity", , drop = FALSE]
+  state_labels <- c(as.character(labels), "E", "V")
+  events <- .build_transition_events(x, membership_table)
+  n_boundaries <- max(0L, length(x$times) - 1L)
+  counts_by_boundary <- vector("list", n_boundaries)
+  probabilities_by_boundary <- vector("list", n_boundaries)
+  penalties_by_boundary <- vector("list", n_boundaries)
+  for (boundary in seq_len(n_boundaries)) {
+    counts_by_boundary[[boundary]] <- .transition_event_counts(
+      events, boundary, state_labels
+    )
+    probabilities_by_boundary[[boundary]] <- .augmented_transition_probabilities(
+      counts_by_boundary[[boundary]], length(labels), smoothing
+    )
+    penalties_by_boundary[[boundary]] <- .transition_penalty(
+      probabilities_by_boundary[[boundary]]
+    )
   }
-  if (nrow(lineage) > 0L) {
-    mem_lookup <- membership_table$membership
-    names(mem_lookup) <- as.character(membership_table$unit_id)
-    from_cluster <- unname(mem_lookup[as.character(lineage$from_unit)])
-    to_cluster <- unname(mem_lookup[as.character(lineage$to_unit)])
-
-    if (anyNA(from_cluster) || anyNA(to_cluster)) {
-      stop(
-        "Memberships must be supplied for all actor-time units referenced by the lineage table.",
-        call. = FALSE
-      )
-    }
-
-    valid <- lineage$weight > 0 & is.finite(lineage$weight)
-    if (any(valid)) {
-      from_factor <- factor(from_cluster[valid], levels = labels)
-      to_factor <- factor(to_cluster[valid], levels = labels)
-      transition_counts <- xtabs(
-        lineage$weight[valid] ~ from_factor + to_factor,
-        drop.unused.levels = FALSE
-      )
-      counts[rownames(transition_counts), colnames(transition_counts)] <- transition_counts
-    }
-  }
-
-  probabilities <- counts + smoothing
-  row_sums <- rowSums(probabilities)
-  probabilities <- sweep(probabilities, 1, row_sums, "/")
+  counts <- .transition_event_counts(events, NULL, state_labels)
+  probabilities <- .augmented_transition_probabilities(counts, length(labels), smoothing)
   penalties <- .transition_penalty(probabilities)
 
   out <- list(
@@ -95,13 +79,121 @@ estimate_markov_transitions <- function(x, membership, k = NULL, smoothing = 0.5
     probabilities = probabilities,
     penalties = penalties,
     labels = labels,
+    substantive_labels = labels,
+    state_labels = state_labels,
+    emerging_label = "E",
+    vanishing_label = "V",
+    counts_by_boundary = counts_by_boundary,
+    probabilities_by_boundary = probabilities_by_boundary,
+    penalties_by_boundary = penalties_by_boundary,
+    events = events,
     smoothing = smoothing,
-    n_lineage_edges_used = nrow(lineage),
+    n_lineage_edges_used = sum(events$transition_type == "persistent"),
+    n_persistent = sum(events$transition_type == "persistent"),
+    n_entries = sum(events$transition_type == "entry"),
+    n_exits = sum(events$transition_type == "exit"),
     membership = membership_table,
-    criterion_note = "Transition probabilities were estimated from identity lineage edges with additive smoothing.",
+    criterion_note = paste(
+      "Augmented transition probabilities use emerging (E) and vanishing (V)",
+      "states for observed entry and exit boundaries; additive smoothing applies",
+      "only to structurally allowed destinations."
+    ),
     call = match.call()
   )
   class(out) <- "markov_transitions"
+  out
+}
+
+#' @keywords internal
+.build_transition_events <- function(x, membership_table) {
+  if (length(x$times) < 2L) {
+    return(data.frame(
+      actor_id = character(), boundary = integer(), from_time_index = integer(),
+      to_time_index = integer(), from_unit = integer(), to_unit = integer(),
+      from_state = character(), to_state = character(), transition_type = character(),
+      weight = numeric(), stringsAsFactors = FALSE
+    ))
+  }
+  lookup <- split(membership_table$membership, membership_table$unit_id)
+  units <- split(x$actor_time$unit_id, x$actor_time$time_index)
+  actors <- split(x$actor_time$actor_id, x$actor_time$time_index)
+  rows <- list()
+  for (boundary in seq_len(length(x$times) - 1L)) {
+    current_ids <- units[[boundary]]
+    next_ids <- units[[boundary + 1L]]
+    current_actors <- actors[[boundary]]
+    next_actors <- actors[[boundary + 1L]]
+    for (actor in union(current_actors, next_actors)) {
+      in_current <- actor %in% current_actors
+      in_next <- actor %in% next_actors
+      if (in_current && in_next) {
+        from_unit <- current_ids[match(actor, current_actors)]
+        to_unit <- next_ids[match(actor, next_actors)]
+        rows[[length(rows) + 1L]] <- data.frame(
+          actor_id = actor, boundary = boundary,
+          from_time_index = boundary, to_time_index = boundary + 1L,
+          from_unit = from_unit, to_unit = to_unit,
+          from_state = as.character(lookup[[as.character(from_unit)]]),
+          to_state = as.character(lookup[[as.character(to_unit)]]),
+          transition_type = "persistent", weight = 1, stringsAsFactors = FALSE
+        )
+      } else if (in_next) {
+        to_unit <- next_ids[match(actor, next_actors)]
+        rows[[length(rows) + 1L]] <- data.frame(
+          actor_id = actor, boundary = boundary,
+          from_time_index = boundary, to_time_index = boundary + 1L,
+          from_unit = NA_integer_, to_unit = to_unit,
+          from_state = "E", to_state = as.character(lookup[[as.character(to_unit)]]),
+          transition_type = "entry", weight = 1, stringsAsFactors = FALSE
+        )
+      } else {
+        from_unit <- current_ids[match(actor, current_actors)]
+        rows[[length(rows) + 1L]] <- data.frame(
+          actor_id = actor, boundary = boundary,
+          from_time_index = boundary, to_time_index = boundary + 1L,
+          from_unit = from_unit, to_unit = NA_integer_,
+          from_state = as.character(lookup[[as.character(from_unit)]]), to_state = "V",
+          transition_type = "exit", weight = 1, stringsAsFactors = FALSE
+        )
+      }
+    }
+  }
+  do.call(rbind, rows)
+}
+
+#' @keywords internal
+.transition_event_counts <- function(events, boundary = NULL, state_labels) {
+  out <- matrix(0, length(state_labels), length(state_labels),
+                dimnames = list(state_labels, state_labels))
+  if (nrow(events) == 0L) return(out)
+  if (!is.null(boundary)) events <- events[events$boundary == boundary, , drop = FALSE]
+  if (!nrow(events)) return(out)
+  valid <- events$weight > 0 & is.finite(events$weight)
+  if (!any(valid)) return(out)
+  out <- xtabs(events$weight[valid] ~ factor(events$from_state[valid], levels = state_labels) +
+                 factor(events$to_state[valid], levels = state_labels),
+               drop.unused.levels = FALSE)
+  attr(out, "call") <- NULL
+  dimnames(out) <- list(state_labels, state_labels)
+  out
+}
+
+#' @keywords internal
+.augmented_transition_probabilities <- function(counts, k, smoothing) {
+  allowed <- matrix(FALSE, nrow(counts), ncol(counts), dimnames = dimnames(counts))
+  has_exit <- sum(counts[seq_len(k), ncol(counts)]) > 0
+  has_entry <- sum(counts[nrow(counts) - 1L, seq_len(k)]) > 0
+  allowed[seq_len(k), seq_len(k)] <- TRUE
+  if (has_exit) allowed[seq_len(k), ncol(counts)] <- TRUE
+  if (has_entry) allowed[nrow(counts) - 1L, seq_len(k)] <- TRUE
+  allowed[nrow(counts), ] <- FALSE
+  out <- matrix(NA_real_, nrow(counts), ncol(counts), dimnames = dimnames(counts))
+  for (i in seq_len(nrow(counts))) {
+    if (any(allowed[i, ])) {
+      values <- counts[i, allowed[i, ]] + smoothing
+      if (sum(values) > 0) out[i, allowed[i, ]] <- values / sum(values)
+    }
+  }
   out
 }
 
@@ -140,15 +232,17 @@ estimate_markov_transitions <- function(x, membership, k = NULL, smoothing = 0.5
   out
 }
 
-#' Estimate a membership prior for dynamic scoring
+#' Estimate an initial membership distribution for dynamic scoring
 #'
-#' Estimate a prior distribution over cluster memberships for use in deviance-
-#' scale local scoring.
+#' Estimate a substantive-cluster distribution for the initial observed time.
+#' The optimizer applies this term only to actor-time units at time one;
+#' later units use temporal transition events instead.
 #'
 #' @param membership Membership labels or a membership table. Character and
 #'   factor inputs are treated as factor-like labels and converted to one-based
 #'   integers.
-#' @param prior Prior mode: `"empirical"`, `"uniform"`, or `"none"`.
+#' @param prior Initial substantive-state distribution mode: `"empirical"`,
+#'   `"uniform"`, or `"none"`.
 #' @param k Optional number of clusters. If omitted, the value is inferred from
 #'   the supplied memberships.
 #' @param smoothing Additive smoothing used for the empirical prior.
@@ -290,6 +384,26 @@ estimate_membership_prior <- function(membership,
     return(x$transition_probabilities)
   }
   stop("`transition` must be a `markov_transitions` object or contain transition probabilities.", call. = FALSE)
+}
+
+#' @keywords internal
+.markov_transition_matrix_for_boundary <- function(x, boundary) {
+  if (inherits(x, "markov_transitions") && !is.null(x$probabilities_by_boundary)) {
+    if (length(boundary) == 1L && !is.na(boundary) &&
+        boundary >= 1L && boundary <= length(x$probabilities_by_boundary)) {
+      return(x$probabilities_by_boundary[[boundary]])
+    }
+  }
+  .markov_transition_matrix(x)
+}
+
+#' @keywords internal
+.markov_probability <- function(transition, boundary, from, to) {
+  matrix <- .markov_transition_matrix_for_boundary(transition, boundary)
+  if (!as.character(from) %in% rownames(matrix) || !as.character(to) %in% colnames(matrix)) {
+    return(NA_real_)
+  }
+  as.numeric(matrix[as.character(from), as.character(to)])
 }
 
 #' @keywords internal
@@ -498,7 +612,6 @@ score_actor_time_candidates <- function(x, fit, membership = NULL,
       smoothing = smoothing
     )
   }
-  transition_probs <- .markov_transition_matrix(transition)
   transition_labels <- .markov_transition_labels(transition)
 
   prior_mode <- prior
@@ -533,8 +646,13 @@ score_actor_time_candidates <- function(x, fit, membership = NULL,
   candidate_clusters <- sort(unique(candidate_clusters))
   candidate_clusters_chr <- as.character(candidate_clusters)
 
-  lineages_prev <- x$lineage[x$lineage$to_unit == target$unit_id & x$lineage$relation == "identity", , drop = FALSE]
-  lineages_next <- x$lineage[x$lineage$from_unit == target$unit_id & x$lineage$relation == "identity", , drop = FALSE]
+  events <- if (inherits(transition, "markov_transitions") && !is.null(transition$events)) {
+    transition$events
+  } else {
+    .build_transition_events(x, membership_table)
+  }
+  previous_event <- events[!is.na(events$to_unit) & events$to_unit == target$unit_id, , drop = FALSE]
+  next_event <- events[!is.na(events$from_unit) & events$from_unit == target$unit_id, , drop = FALSE]
 
   candidate_blocks <- character(0)
   if (nrow(time_fit$data) > 0L) {
@@ -574,21 +692,27 @@ score_actor_time_candidates <- function(x, fit, membership = NULL,
     glm_deviance <- .time_glm_candidate_deviance(time_fit, candidate_data)
 
     prev_penalty <- 0
-    if (nrow(lineages_prev) > 0L) {
-      prev_clusters <- unname(mem_lookup[as.character(lineages_prev$from_unit)])
-      prev_probs <- transition_probs[cbind(as.character(prev_clusters), as.character(candidate))]
-      prev_penalty <- sum(.transition_penalty(prev_probs) * lineages_prev$weight)
+    if (nrow(previous_event) > 0L) {
+      prev_probability <- .markov_probability(
+        transition,
+        if (previous_event$transition_type[[1L]] == "persistent") NA_integer_ else previous_event$boundary[[1L]],
+        previous_event$from_state[[1L]], candidate
+      )
+      prev_penalty <- sum(.transition_penalty(prev_probability) * previous_event$weight)
     }
 
     next_penalty <- 0
-    if (nrow(lineages_next) > 0L) {
-      next_clusters <- unname(mem_lookup[as.character(lineages_next$to_unit)])
-      next_probs <- transition_probs[cbind(as.character(candidate), as.character(next_clusters))]
-      next_penalty <- sum(.transition_penalty(next_probs) * lineages_next$weight)
+    if (nrow(next_event) > 0L) {
+      next_probability <- .markov_probability(
+        transition,
+        if (next_event$transition_type[[1L]] == "persistent") NA_integer_ else next_event$boundary[[1L]],
+        candidate, next_event$to_state[[1L]]
+      )
+      next_penalty <- sum(.transition_penalty(next_probability) * next_event$weight)
     }
 
     prior_penalty <- 0
-    if (identical(prior_obj$prior, "none")) {
+    if (identical(prior_obj$prior, "none") || target$time_index != 1L) {
       prior_penalty <- 0
     } else {
       prior_penalty <- .membership_prior_penalty(prior_obj)[as.character(candidate)]
@@ -638,8 +762,12 @@ score_actor_time_candidates <- function(x, fit, membership = NULL,
 print.markov_transitions <- function(x, ...) {
   cat("markov_transitions object\n")
   cat(sprintf("  labels: %s\n", paste(x$labels, collapse = ", ")))
+  if (!is.null(x$state_labels)) {
+    cat(sprintf("  transition states: %s\n", paste(x$state_labels, collapse = ", ")))
+  }
   cat(sprintf("  smoothing: %s\n", format(x$smoothing)))
-  cat(sprintf("  lineage edges used: %s\n", format(x$n_lineage_edges_used)))
+  cat(sprintf("  persistent/entry/exit events: %s/%s/%s\n",
+              format(x$n_persistent), format(x$n_entries), format(x$n_exits)))
   if (!is.null(x$criterion_note)) {
     cat("  note: ", x$criterion_note, "\n", sep = "")
   }
@@ -656,6 +784,10 @@ print.markov_transitions <- function(x, ...) {
 summary.markov_transitions <- function(object, ...) {
   summary <- list(
     labels = object$labels,
+    state_labels = object$state_labels,
+    n_persistent = object$n_persistent,
+    n_entries = object$n_entries,
+    n_exits = object$n_exits,
     smoothing = object$smoothing,
     n_lineage_edges_used = object$n_lineage_edges_used,
     criterion_note = object$criterion_note

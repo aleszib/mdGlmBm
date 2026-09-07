@@ -45,7 +45,10 @@ Use fast deterministic tests for CI. Put large examples and long comparisons out
 
 - convergence and stopping criteria are tested once the optimizer exists;
 - initialization and random starts are reproducible;
-- actor entry has no predecessor penalty and actor exit has no successor penalty.
+- actor entry uses an emerging-to-substantive penalty and actor exit uses a
+  substantive-to-vanishing penalty;
+- exact augmented transition counts, smoothing, structural-zero behavior, and
+  initial-state probabilities are tested;
 
 ### Existing source code preservation
 
@@ -57,6 +60,10 @@ Use fast deterministic tests for CI. Put large examples and long comparisons out
 When C++ scoring is added, compare R and C++ scoring on fixed tiny inputs.
 
 Equivalence tests should cover individual components, full candidate scores, membership updates, and objective history within documented numerical tolerances.
+
+The corrected reference semantics also require tests for persistent, entry,
+and exit events, single-observation intermediate actors, and the distinction
+between an observed exit and the end of the observation window.
 
 ### Simulation-based validation
 

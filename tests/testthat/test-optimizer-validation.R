@@ -47,8 +47,19 @@ test_that("entry and exit validation remains finite and aligned", {
     candidate_clusters = 1:2, transition = fit$transition,
     prior = "none"
   )
-  expect_true(all(scores_entry$previous_transition_penalty == 0))
-  expect_true(all(scores_exit$next_transition_penalty == 0))
+  expect_true(all(scores_entry$previous_transition_penalty > 0))
+  expect_true(all(scores_exit$next_transition_penalty > 0))
+  expect_gt(fit$entry_transition_penalty_total, 0)
+  expect_gt(fit$exit_transition_penalty_total, 0)
+  expect_equal(
+    fit$objective,
+    fit$deviance_total + fit$initial_penalty_total +
+      fit$ordinary_transition_penalty_total + fit$entry_transition_penalty_total +
+      fit$exit_transition_penalty_total,
+    tolerance = 1e-8
+  )
+  expect_equal(fit$transition$n_entries, 2L)
+  expect_equal(fit$transition$n_exits, 1L)
 })
 
 test_that("PPML validation preserves pseudo-likelihood metadata", {
@@ -146,6 +157,19 @@ test_that("objective and local score components add on the documented scale", {
       scores$next_transition_penalty + scores$prior_penalty,
     tolerance = 1e-8
   )
+  expect_equal(
+    fit$transition_penalty_total,
+    fit$ordinary_transition_penalty_total + fit$entry_transition_penalty_total +
+      fit$exit_transition_penalty_total,
+    tolerance = 1e-8
+  )
+  expect_equal(
+    fit$objective,
+    fit$deviance_total + fit$initial_penalty_total +
+      fit$ordinary_transition_penalty_total + fit$entry_transition_penalty_total +
+      fit$exit_transition_penalty_total,
+    tolerance = 1e-8
+  )
 })
 
 test_that("optimizer history exposes finite convergence diagnostics", {
@@ -156,7 +180,8 @@ test_that("optimizer history exposes finite convergence diagnostics", {
   )
   expect_true(all(c("iteration", "n_changes", "objective",
                     "deviance_total", "transition_penalty_total",
-                    "prior_penalty_total") %in% names(fit$history)))
+                    "prior_penalty_total", "entry_transition_penalty_total",
+                    "exit_transition_penalty_total") %in% names(fit$history)))
   expect_true(all(is.finite(fit$history$objective)))
   expect_true(fit$stopping_reason %in% c("no_changes", "max_iter"))
   expect_equal(fit$objective, tail(fit$history$objective, 1L), tolerance = 1e-8)

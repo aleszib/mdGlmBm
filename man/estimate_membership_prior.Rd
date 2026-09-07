@@ -2,7 +2,7 @@
 % Please edit documentation in R/transition_scoring.R
 \name{estimate_membership_prior}
 \alias{estimate_membership_prior}
-\title{Estimate a membership prior for dynamic scoring}
+\title{Estimate an initial membership distribution for dynamic scoring}
 \usage{
 estimate_membership_prior(
   membership,
@@ -17,7 +17,8 @@ estimate_membership_prior(
 factor inputs are treated as factor-like labels and converted to one-based
 integers.}
 
-\item{prior}{Prior mode: \code{"empirical"}, \code{"uniform"}, or \code{"none"}.}
+\item{prior}{Initial substantive-state distribution mode: \code{"empirical"},
+\code{"uniform"}, or \code{"none"}.}
 
 \item{k}{Optional number of clusters. If omitted, the value is inferred from
 the supplied memberships.}
@@ -40,8 +41,9 @@ A list of class \code{membership_prior} with elements:
 }
 }
 \description{
-Estimate a prior distribution over cluster memberships for use in deviance-
-scale local scoring.
+Estimate a substantive-cluster distribution for the initial observed time.
+The optimizer applies this term only to actor-time units at time one;
+later units use temporal transition events instead.
 }
 \examples{
 estimate_membership_prior(c(1L, 1L, 2L, 3L), prior = "empirical")
