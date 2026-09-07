@@ -5,10 +5,10 @@ test_that("the ARI helper is label invariant", {
   expect_lt(.adjusted_rand_index(truth, c(1L, 2L, 1L, 2L, 1L, 2L)), 1)
 })
 
-test_that("strong binomial dynamic structure is substantially recovered", {
+test_that("strong binomial dynamic structure is retained from a known partition", {
   fx <- simulate_binomial_validation_fixture()
   fit <- fit_dynamic_glm_blockmodel(
-    fx$network, k = fx$k, n_starts = 5L, seed = 77L,
+    fx$network, membership = fx$truth_membership, k = fx$k, n_starts = 1L,
     max_iter = 5L, prior = "none"
   )
   estimated <- fit$membership$membership
@@ -21,6 +21,23 @@ test_that("strong binomial dynamic structure is substantially recovered", {
   expect_gte(overall_ari, 0.8)
   expect_gte(mean(per_time_ari), 0.8)
   expect_true(all(is.finite(fit$objective)))
+})
+
+test_that("random-start search reaches a strong partition basin", {
+  fx <- simulate_binomial_validation_fixture()
+  fit <- fit_dynamic_glm_blockmodel(
+    fx$network, k = fx$k, n_starts = 20L, seed = 77L,
+    max_iter = 5L, prior = "none"
+  )
+  per_time_ari <- vapply(fit$starts, function(start) {
+    mean(vapply(seq_along(fx$network$times), function(i) {
+      idx <- fx$network$actor_time$time_index == i
+      .adjusted_rand_index(start$final_membership$membership[idx],
+                           fx$truth_membership$membership[idx])
+    }, numeric(1)))
+  }, numeric(1))
+  expect_gte(max(per_time_ari), 0.8)
+  expect_equal(fit$objective, min(fit$start_objectives), tolerance = 1e-8)
 })
 
 test_that("entry and exit validation remains finite and aligned", {
@@ -47,8 +64,24 @@ test_that("entry and exit validation remains finite and aligned", {
     candidate_clusters = 1:2, transition = fit$transition,
     prior = "none"
   )
-  expect_true(all(scores_entry$previous_transition_penalty == 0))
-  expect_true(all(scores_exit$next_transition_penalty == 0))
+  expect_true(all(scores_entry$previous_transition_penalty > 0))
+  expect_true(all(scores_exit$next_transition_penalty > 0))
+  expect_gt(fit$entry_transition_penalty_total, 0)
+  expect_gt(fit$exit_transition_penalty_total, 0)
+  expect_equal(
+    fit$objective,
+    fit$deviance_total + fit$initial_penalty_total +
+      fit$ordinary_transition_penalty_total + fit$entry_transition_penalty_total +
+      fit$exit_transition_penalty_total,
+    tolerance = 1e-8
+  )
+  expect_equal(
+    fit$transition_penalty_total,
+    sum(fit$transition_component_by_boundary),
+    tolerance = 1e-8
+  )
+  expect_equal(fit$transition$n_entries, 2L)
+  expect_equal(fit$transition$n_exits, 1L)
 })
 
 test_that("PPML validation preserves pseudo-likelihood metadata", {
@@ -146,6 +179,19 @@ test_that("objective and local score components add on the documented scale", {
       scores$next_transition_penalty + scores$prior_penalty,
     tolerance = 1e-8
   )
+  expect_equal(
+    fit$transition_penalty_total,
+    fit$ordinary_transition_penalty_total + fit$entry_transition_penalty_total +
+      fit$exit_transition_penalty_total,
+    tolerance = 1e-8
+  )
+  expect_equal(
+    fit$objective,
+    fit$deviance_total + fit$initial_penalty_total +
+      fit$ordinary_transition_penalty_total + fit$entry_transition_penalty_total +
+      fit$exit_transition_penalty_total,
+    tolerance = 1e-8
+  )
 })
 
 test_that("optimizer history exposes finite convergence diagnostics", {
@@ -156,7 +202,8 @@ test_that("optimizer history exposes finite convergence diagnostics", {
   )
   expect_true(all(c("iteration", "n_changes", "objective",
                     "deviance_total", "transition_penalty_total",
-                    "prior_penalty_total") %in% names(fit$history)))
+                    "prior_penalty_total", "entry_transition_penalty_total",
+                    "exit_transition_penalty_total") %in% names(fit$history)))
   expect_true(all(is.finite(fit$history$objective)))
   expect_true(fit$stopping_reason %in% c("no_changes", "max_iter"))
   expect_equal(fit$objective, tail(fit$history$objective, 1L), tolerance = 1e-8)

@@ -41,6 +41,13 @@ Keep GLM coefficient fitting in R initially.
 10. **Model selection and later families:** add model-selection support and, after review, Poisson and Gaussian/normal families.
 11. **Split/merge lineage support:** generalize lineage aggregation without blocking future unit split/merge behavior.
 
+The current transition milestone includes the corrected two-auxiliary-state
+semantics: substantive `K` GLM clusters are separate from emerging and
+vanishing transition states, initial-state probabilities are distinct from
+later temporal transitions, and each observed boundary has its own transition
+distribution. The R reference implementation and validation suite must be
+accepted as the correctness baseline before C++ scoring begins.
+
 The current initialization layer uses a simple independent random partition for
 fixed `K`. Explicit seeds are locally scoped; the default `seed = NULL` uses the
 current RNG stream. Automatic `K` selection is not part of this phase.

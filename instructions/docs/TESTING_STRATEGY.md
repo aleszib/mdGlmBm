@@ -45,7 +45,10 @@ Use fast deterministic tests for CI. Put large examples and long comparisons out
 
 - convergence and stopping criteria are tested once the optimizer exists;
 - initialization and random starts are reproducible;
-- actor entry has no predecessor penalty and actor exit has no successor penalty.
+- actor entry uses an emerging-to-substantive penalty and actor exit uses a
+  substantive-to-vanishing penalty;
+- exact augmented transition counts, smoothing, structural-zero behavior, and
+  initial-state probabilities are tested;
 
 ### Existing source code preservation
 
@@ -58,12 +61,20 @@ When C++ scoring is added, compare R and C++ scoring on fixed tiny inputs.
 
 Equivalence tests should cover individual components, full candidate scores, membership updates, and objective history within documented numerical tolerances.
 
+The corrected reference semantics also require tests for persistent, entry,
+and exit events, single-observation intermediate actors, and the distinction
+between an observed exit and the end of the observation window.
+
 ### Simulation-based validation
 
 Keep simulation validation separate from exact software invariants. Seeded,
 optimizer-independent fixtures cover a strong binomial block structure,
 multiple time points, actor entry/exit, and a small PPML count-data example.
-Use ARI or another label-invariant measure for recovery. Also validate
+Use ARI or another label-invariant measure for recovery. Because the
+manuscript permits cluster labels to change between time points, report both
+overall and per-time recovery; random-start tests should verify that the search
+can reach a strong partition basin without treating time-wise label names as
+scientific identities. Also validate
 multiple-start selection, global label permutation and actor-order invariance,
 objective-component sums, local score-component sums, and convergence
 diagnostics. Do not assume a fully recomputed global objective is monotone

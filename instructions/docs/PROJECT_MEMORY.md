@@ -113,6 +113,21 @@ objective-component accounting, global label permutation, actor reordering,
 local score decomposition, and convergence diagnostics. These tests establish
 implementation evidence on fixtures; they do not claim general consistency.
 
+### Corrected dynamic-state semantics
+
+The authoritative dynamic model has `K` substantive GLM clusters and two
+transition-only auxiliary states: emerging/incoming (`E`) and
+vanishing/outgoing (`V`). An observed later entrant contributes `E -> k`; an
+actor leaving before a later observed time contributes `k -> V`; persistent
+actors contribute substantive-to-substantive transitions. Auxiliary states do
+not create GLM dyads or candidate cluster labels. Actors present at the first
+observed time use an initial substantive membership distribution, while a
+generic empirical prior is not independently applied to every later
+actor-time. Each observed boundary has its own transition distribution; no
+temporal pooling is assumed. Re-entry under one actor ID is rejected, following the manuscript's
+contiguous-presence assumption; a later appearance should use a new ID. The R implementation remains the correctness oracle, and C++ work is
+deferred until these corrected semantics pass validation.
+
 ## Development milestones
 
 ### Milestone 0: Instruction and CI bootstrap
