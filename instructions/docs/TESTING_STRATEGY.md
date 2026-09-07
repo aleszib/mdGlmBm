@@ -58,6 +58,19 @@ When C++ scoring is added, compare R and C++ scoring on fixed tiny inputs.
 
 Equivalence tests should cover individual components, full candidate scores, membership updates, and objective history within documented numerical tolerances.
 
+### Simulation-based validation
+
+Keep simulation validation separate from exact software invariants. Seeded,
+optimizer-independent fixtures cover a strong binomial block structure,
+multiple time points, actor entry/exit, and a small PPML count-data example.
+Use ARI or another label-invariant measure for recovery. Also validate
+multiple-start selection, global label permutation and actor-order invariance,
+objective-component sums, local score-component sums, and convergence
+diagnostics. Do not assume a fully recomputed global objective is monotone
+unless the update/refit scheme proves it; record history and report observed
+behavior instead. Keep larger simulation studies outside routine `testthat` and
+`R CMD check`.
+
 ## CI expectations
 
 GitHub Actions should run:

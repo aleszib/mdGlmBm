@@ -45,6 +45,13 @@ The current initialization layer uses a simple independent random partition for
 fixed `K`. Explicit seeds are locally scoped; the default `seed = NULL` uses the
 current RNG stream. Automatic `K` selection is not part of this phase.
 
+The validation milestone now includes deterministic simulation fixtures and
+tests for label-invariant recovery, entry/exit, PPML metadata, multiple starts,
+objective consistency, global label and actor-order invariance, local scoring,
+and convergence diagnostics. Recovery thresholds are fixture-specific evidence,
+not claims of general statistical consistency. Global objective monotonicity is
+not imposed without a mathematical guarantee.
+
 ## Early-task non-goals
 
 Early tasks do not include broad refactoring, pooled/shared GLM coefficients across time, exact refitting for every candidate move as the default, full C++ GLM fitting, split/merge estimation, arbitrary C++ formula support, or CRAN-readiness claims. Preserve existing static GLM and `mdsbm` behavior unless a task explicitly changes it.
