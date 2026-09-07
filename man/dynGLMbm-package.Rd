@@ -11,7 +11,8 @@ Foundation package for dynamic GLM-based blockmodeling.
 \details{
 The current release preserves the legacy \code{mdsbm} dynamic optimizer interface
 and adds cleaned static GLM blockmodeling helpers from imported source
-material. The dynamic GLM-Markov optimizer is not yet implemented.
+material. The first R reference dynamic GLM-Markov optimizer supports fixed-K
+initialization and multiple starts.
 }
 \author{
 \strong{Maintainer}: OpenAI Codex \email{noreply@example.com}

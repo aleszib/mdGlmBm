@@ -96,6 +96,15 @@ Do not use static GLM followed only by post-hoc smoothing as the final model. Do
 
 Initial implementation should use R's GLM machinery and a clear R reference backend. The performance path is a C++ backend for local scoring and membership updates, with GLM coefficient fitting remaining in R initially.
 
+### Initialization and starts
+
+The dynamic optimizer keeps `K` fixed in this phase. `seed = NULL` is the
+default and does not reset the RNG; numeric seeds are opt-in for reproducible
+initialization. If a membership is supplied with `n_starts > 1`, it is retained
+as start 1 and additional starts are random. If no membership is supplied, a
+fixed `k` is required and each initial partition represents every cluster when
+feasible. Automatic selection of `K` is deliberately deferred.
+
 ## Development milestones
 
 ### Milestone 0: Instruction and CI bootstrap

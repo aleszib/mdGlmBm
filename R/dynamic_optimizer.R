@@ -72,7 +72,56 @@
   )
 }
 
-#' Fit a dynamic GLM-Markov blockmodel with fixed K and supplied starts
+#' Initialize dynamic actor-time memberships
+#'
+#' Generate a one-based random initial partition for every active actor-time
+#' unit. The helper is intentionally separate from optimization so that
+#' initialization methods can be extended later without changing the
+#' optimizer interface.
+#'
+#' @param network A `dynamic_network` object from [as_dynamic_network()].
+#' @param k Positive fixed number of clusters.
+#' @param method Initialization method. Currently only `"random"` is
+#'   supported.
+#'
+#' @return A normalized actor-time membership data frame.
+#' @export
+initialize_dynamic_membership <- function(network, k, method = "random") {
+  if (!inherits(network, "dynamic_network")) {
+    stop("`network` must be a `dynamic_network` object.", call. = FALSE)
+  }
+  if (!is.numeric(k) || length(k) != 1L || is.na(k) || !is.finite(k) ||
+      k < 1 || k != as.integer(k)) {
+    stop("`k` must be a single positive integer.", call. = FALSE)
+  }
+  k <- as.integer(k)
+  method <- match.arg(method, c("random"))
+  n_units <- nrow(network$actor_time)
+  if (n_units < k) {
+    stop(
+      "Cannot initialize ", k, " clusters with only ", n_units,
+      " actor-time units; every cluster must be represented.",
+      call. = FALSE
+    )
+  }
+
+  membership <- if (identical(method, "random")) {
+    sample(rep(seq_len(k), length.out = n_units))
+  }
+
+  out <- network$actor_time[, c(
+    "unit_id", "actor_id", "time", "time_index", "row_index"
+  ), drop = FALSE]
+  out$membership <- as.integer(membership)
+  out
+}
+
+#' Fit a dynamic GLM-Markov blockmodel with fixed K and multiple starts
+#'
+#' The optimizer uses an existing membership as the first start when supplied;
+#' otherwise it generates random one-based initial memberships. Additional
+#' starts are random. `seed = NULL` is the default and does not reset the RNG;
+#' supply a numeric seed when reproducible starts are required.
 #'
 #' Deterministic R reference optimizer for the first dynamic GLM-Markov model.
 #' The optimizer alternates between:
@@ -83,7 +132,8 @@
 #'
 #' @param network A `dynamic_network` object from [as_dynamic_network()].
 #' @param membership Initial actor-time memberships. Supported inputs follow
-#'   the same conventions as [fit_time_glm_blockmodels()].
+#'   the same conventions as [fit_time_glm_blockmodels()]. If `NULL`, random
+#'   initialization requires a supplied fixed `k`.
 #' @param k Optional fixed number of clusters. If omitted, it is inferred from
 #'   the supplied initial memberships.
 #' @param family GLM family specification. Supported values are `"binomial"`
@@ -98,6 +148,10 @@
 #'   `"sweep"`.
 #' @param verbose Logical; if `TRUE`, print progress messages.
 #' @param tol Strict-improvement tolerance on the deviance scale.
+#' @param n_starts Positive number of independent starts at fixed `k`.
+#' @param seed Optional finite numeric seed. The default `NULL` uses the
+#'   current RNG stream without resetting it. Explicit seeds are locally
+#'   scoped and restore the caller's RNG state on return.
 #'
 #' @return A `dynamic_glm_blockmodel` object with final memberships, fitted
 #'   time-specific GLM models, Markov transition estimates, objective history,
@@ -115,8 +169,9 @@
 #' fit_dynamic_glm_blockmodel(dn, membership = init, k = 1, max_iter = 1)
 #'
 #' @export
-fit_dynamic_glm_blockmodel <- function(network, membership, k = NULL,
+fit_dynamic_glm_blockmodel <- function(network, membership = NULL, k = NULL,
                                        family = c("binomial", "ppml"),
+                                       n_starts = 1L, seed = NULL,
                                        max_iter = 10,
                                        smoothing = 0.5,
                                        prior = c("empirical", "uniform", "none"),
@@ -124,9 +179,59 @@ fit_dynamic_glm_blockmodel <- function(network, membership, k = NULL,
                                        refit = c("sweep"),
                                        verbose = FALSE,
                                        tol = 1e-8) {
+  if (!is.null(seed)) {
+    if (!is.numeric(seed) || length(seed) != 1L || is.na(seed) || !is.finite(seed)) {
+      stop("`seed` must be NULL or a single finite numeric value.", call. = FALSE)
+    }
+    had_state <- exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
+    if (had_state) {
+      old_state <- get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
+    }
+    on.exit({
+      if (had_state) {
+        assign(".Random.seed", old_state, envir = .GlobalEnv)
+      } else if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
+        rm(".Random.seed", envir = .GlobalEnv)
+      }
+    }, add = TRUE)
+    set.seed(seed)
+  }
+
+  .fit_dynamic_glm_blockmodel_multiple(
+    network = network,
+    membership = membership,
+    k = k,
+    family = family,
+    n_starts = n_starts,
+    seed = seed,
+    max_iter = max_iter,
+    smoothing = smoothing,
+    prior = prior,
+    sweep_order = sweep_order,
+    refit = refit,
+    verbose = verbose,
+    tol = tol
+  )
+}
+
+#' @keywords internal
+.fit_dynamic_glm_blockmodel_multiple <- function(network, membership, k,
+                                                  family, n_starts, seed,
+                                                  max_iter, smoothing, prior,
+                                                  sweep_order, refit, verbose,
+                                                  tol) {
+  family <- force(family)
+  prior <- force(prior)
+  sweep_order <- force(sweep_order)
+  refit <- force(refit)
   if (!inherits(network, "dynamic_network")) {
     stop("`network` must be a `dynamic_network` object.", call. = FALSE)
   }
+  if (!is.numeric(n_starts) || length(n_starts) != 1L || is.na(n_starts) ||
+      !is.finite(n_starts) || n_starts < 1 || n_starts != as.integer(n_starts)) {
+    stop("`n_starts` must be a single positive integer.", call. = FALSE)
+  }
+  n_starts <- as.integer(n_starts)
   if (!is.numeric(max_iter) || length(max_iter) != 1L || is.na(max_iter) || max_iter < 0) {
     stop("`max_iter` must be a single non-negative numeric value.", call. = FALSE)
   }
@@ -138,21 +243,104 @@ fit_dynamic_glm_blockmodel <- function(network, membership, k = NULL,
   }
 
   family_info <- glm_blockmodel_family(family)
-  prior <- match.arg(prior)
-  sweep_order <- match.arg(sweep_order)
-  refit <- match.arg(refit)
+  prior <- match.arg(prior, c("empirical", "uniform", "none"))
+  sweep_order <- match.arg(sweep_order, c("actor_time"))
+  refit <- match.arg(refit, c("sweep"))
 
+  if (is.null(membership) && is.null(k)) {
+    stop("`k` must be supplied when `membership` is NULL.", call. = FALSE)
+  }
+  if (!is.null(k) && (!is.numeric(k) || length(k) != 1L || is.na(k) ||
+                      !is.finite(k) || k < 1 || k != as.integer(k))) {
+    stop("`k` must be a single positive integer when supplied.", call. = FALSE)
+  }
+  if (!is.null(k)) {
+    k <- as.integer(k)
+  }
+
+  membership_table <- if (is.null(membership)) {
+    initialize_dynamic_membership(network, k = k)
+  } else {
+    .time_glm_normalize_membership(
+      membership = membership,
+      actor_time = network$actor_time,
+      time_labels = network$times
+    )
+  }
+  if (is.null(k)) {
+    k <- max(membership_table$membership)
+  } else if (k < max(membership_table$membership)) {
+    stop("`k` cannot be smaller than the largest supplied membership label.", call. = FALSE)
+  }
+
+  start_memberships <- vector("list", n_starts)
+  start_memberships[[1L]] <- membership_table
+  if (n_starts > 1L) {
+    for (start_idx in 2:n_starts) {
+      start_memberships[[start_idx]] <- initialize_dynamic_membership(network, k = k)
+    }
+  }
+
+  runs <- lapply(start_memberships, function(start_membership) {
+    .fit_dynamic_glm_blockmodel_single(
+      network = network,
+      membership = start_membership,
+      k = k,
+      family = family,
+      max_iter = max_iter,
+      smoothing = smoothing,
+      prior = prior,
+      sweep_order = sweep_order,
+      refit = refit,
+      verbose = verbose,
+      tol = tol
+    )
+  })
+  start_objectives <- vapply(runs, function(x) x$objective, numeric(1))
+  best_start <- which.min(start_objectives)
+  best <- runs[[best_start]]
+  compact_starts <- lapply(runs, function(x) {
+    list(
+      initial_membership = x$initial_membership,
+      final_membership = x$membership,
+      objective = x$objective,
+      converged = x$converged,
+      n_iter = x$n_iter,
+      n_changes = x$n_changes,
+      objective_history = x$objective_history,
+      history = x$history
+    )
+  })
+
+  best$n_starts <- n_starts
+  best$best_start <- best_start
+  best$start_objectives <- start_objectives
+  best$start_converged <- vapply(runs, function(x) x$converged, logical(1))
+  best$starts <- compact_starts
+  best$seed <- seed
+  best$control$n_starts <- n_starts
+  best$control$seed <- seed
+  best$call <- match.call()
+  best
+}
+
+#' @keywords internal
+.fit_dynamic_glm_blockmodel_single <- function(network, membership, k,
+                                                family, max_iter, smoothing,
+                                                prior, sweep_order, refit,
+                                                verbose, tol) {
+  family_info <- glm_blockmodel_family(family)
   membership_table <- .time_glm_normalize_membership(
     membership = membership,
     actor_time = network$actor_time,
     time_labels = network$times
   )
   initial_membership <- membership_table
-
   if (is.null(k)) {
     k <- max(membership_table$membership)
   } else {
-    if (!is.numeric(k) || length(k) != 1L || is.na(k) || k < 1L) {
+    if (!is.numeric(k) || length(k) != 1L || is.na(k) || !is.finite(k) ||
+        k < 1 || k != as.integer(k)) {
       stop("`k` must be a single positive integer when supplied.", call. = FALSE)
     }
     k <- as.integer(k)

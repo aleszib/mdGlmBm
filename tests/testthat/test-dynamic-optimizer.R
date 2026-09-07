@@ -168,3 +168,119 @@ test_that("one-based cluster labels are preserved in the dynamic optimizer", {
   expect_true(all(fit$membership$membership >= 1L))
   expect_setequal(unique(fit$membership$membership), unique(fx$membership$membership))
 })
+
+test_that("random initialization creates complete one-based partitions", {
+  fx <- make_dynamic_optimizer_fixture()
+  init <- initialize_dynamic_membership(fx$network, k = 2L)
+
+  expect_equal(nrow(init), nrow(fx$network$actor_time))
+  expect_false(anyNA(init$membership))
+  expect_true(all(init$membership %in% 1:2))
+  expect_setequal(unique(init$membership), 1:2)
+  expect_equal(init$unit_id, fx$network$actor_time$unit_id)
+})
+
+test_that("missing membership requires fixed k and supports actor entry and exit", {
+  fx <- make_dynamic_optimizer_fixture()
+
+  expect_error(
+    fit_dynamic_glm_blockmodel(fx$network, max_iter = 0),
+    "`k` must be supplied"
+  )
+
+  fit <- fit_dynamic_glm_blockmodel(
+    fx$network,
+    membership = NULL,
+    k = 2L,
+    n_starts = 2L,
+    max_iter = 0,
+    seed = 123
+  )
+  expect_equal(nrow(fit$membership), nrow(fx$network$actor_time))
+  expect_true(all(fit$membership$membership %in% 1:2))
+  expect_length(fit$starts, 2L)
+})
+
+test_that("explicit seeds reproduce starts and preserve the caller RNG state", {
+  fx <- make_dynamic_optimizer_fixture()
+  set.seed(456)
+  state_before <- .Random.seed
+
+  fit1 <- fit_dynamic_glm_blockmodel(
+    fx$network, k = 2L, n_starts = 3L, max_iter = 0, seed = 123
+  )
+  state_after <- .Random.seed
+  fit2 <- fit_dynamic_glm_blockmodel(
+    fx$network, k = 2L, n_starts = 3L, max_iter = 0, seed = 123
+  )
+
+  expect_equal(state_after, state_before)
+  expect_identical(fit1$seed, 123)
+  expect_equal(
+    lapply(fit1$starts, `[[`, "initial_membership"),
+    lapply(fit2$starts, `[[`, "initial_membership")
+  )
+  expect_equal(fit1$objective, fit2$objective)
+  expect_equal(fit1$membership, fit2$membership)
+})
+
+test_that("seed NULL uses the current RNG stream rather than a fixed seed", {
+  fx <- make_dynamic_optimizer_fixture()
+  set.seed(789)
+  expected <- sample(rep(1:2, length.out = nrow(fx$network$actor_time)))
+  set.seed(789)
+  fit <- fit_dynamic_glm_blockmodel(
+    fx$network, k = 2L, n_starts = 1L, max_iter = 0, seed = NULL
+  )
+
+  expect_null(fit$seed)
+  expect_equal(fit$starts[[1]]$initial_membership$membership, expected)
+})
+
+test_that("supplied membership is retained as the first of multiple starts", {
+  fx <- make_dynamic_optimizer_fixture()
+  fit <- fit_dynamic_glm_blockmodel(
+    fx$network,
+    membership = fx$membership,
+    k = 2L,
+    n_starts = 3L,
+    max_iter = 0,
+    seed = 123
+  )
+
+  expect_equal(fit$starts[[1]]$initial_membership$membership, fx$membership$membership)
+  expect_equal(fit$n_starts, 3L)
+})
+
+test_that("multiple starts select the minimum objective and retain diagnostics", {
+  fx <- make_dynamic_optimizer_fixture()
+  fit <- fit_dynamic_glm_blockmodel(
+    fx$network, k = 2L, n_starts = 3L, max_iter = 0, seed = 123
+  )
+
+  expect_equal(fit$objective, min(fit$start_objectives))
+  expect_equal(fit$best_start, which.min(fit$start_objectives))
+  expect_length(fit$start_objectives, 3L)
+  expect_length(fit$start_converged, 3L)
+  expect_true(all(vapply(fit$starts, function(x) {
+    all(c("initial_membership", "final_membership", "objective",
+          "converged", "n_iter") %in% names(x))
+  }, logical(1))))
+})
+
+test_that("initialization and multiple-start arguments are validated", {
+  fx <- make_dynamic_optimizer_fixture()
+
+  expect_error(fit_dynamic_glm_blockmodel(fx$network, k = 2L, n_starts = 0),
+               "positive integer")
+  expect_error(fit_dynamic_glm_blockmodel(fx$network, k = 2L, n_starts = -1),
+               "positive integer")
+  expect_error(fit_dynamic_glm_blockmodel(fx$network, k = 2L, n_starts = 1.5),
+               "positive integer")
+  expect_error(initialize_dynamic_membership(fx$network, k = 20L),
+               "every cluster must be represented")
+  expect_error(
+    fit_dynamic_glm_blockmodel(fx$network, membership = fx$membership, k = 1L, max_iter = 0),
+    "cannot be smaller"
+  )
+})

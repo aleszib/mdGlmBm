@@ -8,7 +8,8 @@ Current status:
 - cleaned static GLM blockmodeling helpers are imported and documented;
 - a first dynamic data-layer constructor is available for time-indexed network input;
 - time-specific GLM observation-model fitting is available for fixed memberships;
-- the dynamic GLM-Markov optimizer is not implemented yet.
+- the first R reference dynamic GLM-Markov optimizer supports fixed-K
+  initialization and multiple starts.
 
 ## Static GLM example
 
@@ -102,11 +103,24 @@ init <- data.frame(unit_id = dn$actor_time$unit_id, membership = 1L)
 fit <- fit_dynamic_glm_blockmodel(dn, membership = init, k = 1, max_iter = 1)
 fit$membership
 fit$objective_history
+
+# Random initialization and multiple starts at fixed K
+fit_random <- fit_dynamic_glm_blockmodel(
+  dn, k = 2, n_starts = 5
+)
+
+# Reproducible starts; seed = NULL is the default when omitted
+fit_reproducible <- fit_dynamic_glm_blockmodel(
+  dn, k = 2, n_starts = 5, seed = 123
+)
 ```
 
-This is the first R reference dynamic optimizer. It requires a supplied initial
-membership table and fixed `K`; it does not yet do random starts, C++ scoring,
-split/merge, or automatic model selection.
+This is the first R reference dynamic optimizer. It uses fixed `K`; a supplied
+membership is retained as the first start, while additional starts are random.
+With `seed = NULL` the package does not reset the RNG, so ordinary repeated
+calls may differ. Supply a numeric seed when reproducible initialization is
+desired. Explicit seeds are locally scoped and restore the caller's RNG state.
+Automatic model selection, C++ scoring, and split/merge remain future work.
 
 ## Legacy dynamic example
 
@@ -150,5 +164,6 @@ dn$lineage
 - `estimate_markov_transitions()`, `estimate_membership_prior()`, and
   `score_actor_time_candidates()` provide the reference dynamic scoring layer.
 - `fit_dynamic_glm_blockmodel()` is the first R reference dynamic optimizer
-  for fixed `K` and supplied starting memberships.
-- The dynamic GLM-Markov optimizer is still pending and will be implemented in a later task.
+  for fixed `K`, supplied or random starting memberships, and multiple starts.
+- `initialize_dynamic_membership()` provides the current random initializer;
+  additional initialization methods are future work.

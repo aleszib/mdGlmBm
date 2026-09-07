@@ -2,13 +2,15 @@
 % Please edit documentation in R/dynamic_optimizer.R
 \name{fit_dynamic_glm_blockmodel}
 \alias{fit_dynamic_glm_blockmodel}
-\title{Fit a dynamic GLM-Markov blockmodel with fixed K and supplied starts}
+\title{Fit a dynamic GLM-Markov blockmodel with fixed K and multiple starts}
 \usage{
 fit_dynamic_glm_blockmodel(
   network,
-  membership,
+  membership = NULL,
   k = NULL,
   family = c("binomial", "ppml"),
+  n_starts = 1L,
+  seed = NULL,
   max_iter = 10,
   smoothing = 0.5,
   prior = c("empirical", "uniform", "none"),
@@ -22,13 +24,20 @@ fit_dynamic_glm_blockmodel(
 \item{network}{A \code{dynamic_network} object from \code{\link[=as_dynamic_network]{as_dynamic_network()}}.}
 
 \item{membership}{Initial actor-time memberships. Supported inputs follow
-the same conventions as \code{\link[=fit_time_glm_blockmodels]{fit_time_glm_blockmodels()}}.}
+the same conventions as \code{\link[=fit_time_glm_blockmodels]{fit_time_glm_blockmodels()}}. If \code{NULL}, random
+initialization requires a supplied fixed \code{k}.}
 
 \item{k}{Optional fixed number of clusters. If omitted, it is inferred from
 the supplied initial memberships.}
 
 \item{family}{GLM family specification. Supported values are \code{"binomial"}
 and \code{"ppml"}.}
+
+\item{n_starts}{Positive number of independent starts at fixed \code{k}.}
+
+\item{seed}{Optional finite numeric seed. The default \code{NULL} uses the
+current RNG stream without resetting it. Explicit seeds are locally
+scoped and restore the caller's RNG state on return.}
 
 \item{max_iter}{Maximum number of reassignment sweeps.}
 
@@ -53,6 +62,12 @@ time-specific GLM models, Markov transition estimates, objective history,
 and convergence diagnostics.
 }
 \description{
+The optimizer uses an existing membership as the first start when supplied;
+otherwise it generates random one-based initial memberships. Additional
+starts are random. \code{seed = NULL} is the default and does not reset the RNG;
+supply a numeric seed when reproducible starts are required.
+}
+\details{
 Deterministic R reference optimizer for the first dynamic GLM-Markov model.
 The optimizer alternates between:
 \itemize{

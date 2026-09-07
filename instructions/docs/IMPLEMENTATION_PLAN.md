@@ -41,6 +41,10 @@ Keep GLM coefficient fitting in R initially.
 10. **Model selection and later families:** add model-selection support and, after review, Poisson and Gaussian/normal families.
 11. **Split/merge lineage support:** generalize lineage aggregation without blocking future unit split/merge behavior.
 
+The current initialization layer uses a simple independent random partition for
+fixed `K`. Explicit seeds are locally scoped; the default `seed = NULL` uses the
+current RNG stream. Automatic `K` selection is not part of this phase.
+
 ## Early-task non-goals
 
 Early tasks do not include broad refactoring, pooled/shared GLM coefficients across time, exact refitting for every candidate move as the default, full C++ GLM fitting, split/merge estimation, arbitrary C++ formula support, or CRAN-readiness claims. Preserve existing static GLM and `mdsbm` behavior unless a task explicitly changes it.
